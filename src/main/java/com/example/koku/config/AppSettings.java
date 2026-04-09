@@ -10,9 +10,9 @@ public class AppSettings {
     private RuleConfig pendingRuleConfig;
 
     public AppSettings() {
-        this.themeMode = ThemeMode.LIGHT;
+        this.themeMode = ThemeMode.DARK;
         this.languageMode = LanguageMode.ZH_CN;
-        this.showCoordinates = false;
+        this.showCoordinates = true;
         this.showLastMoveMarker = true;
         this.currentRuleConfig = RuleConfig.defaultConfig();
         this.pendingRuleConfig = this.currentRuleConfig;

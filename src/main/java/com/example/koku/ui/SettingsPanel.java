@@ -4,7 +4,9 @@ import com.example.koku.config.BoardSizeOption;
 import com.example.koku.config.LanguageMode;
 import com.example.koku.config.RuleConfig;
 import com.example.koku.config.ThemeMode;
+import com.example.koku.config.TimerMode;
 import com.example.koku.config.TimerOption;
+import com.example.koku.config.TotalTimerOption;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -13,6 +15,7 @@ import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
+import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.util.Callback;
@@ -28,8 +31,23 @@ public class SettingsPanel extends VBox {
     private final Button forbiddenInfoButton;
     private final CheckBox forbiddenCheck;
 
+    private final CheckBox perMoveEnableCheck;
     private final Label timerLabel;
     private final ComboBox<TimerOption> timerBox;
+    private final HBox perMoveCustomRow;
+    private final Label perMoveMinutesLabel;
+    private final TextField perMoveMinutesField;
+    private final Label perMoveSecondsLabel;
+    private final TextField perMoveSecondsField;
+
+    private final CheckBox totalEnableCheck;
+    private final Label totalTimerLabel;
+    private final ComboBox<TotalTimerOption> totalTimerBox;
+    private final HBox totalCustomRow;
+    private final Label totalMinutesLabel;
+    private final TextField totalMinutesField;
+    private final Label totalSecondsLabel;
+    private final TextField totalSecondsField;
 
     private final Label appearanceLabel;
     private final ComboBox<ThemeMode> themeBox;
@@ -48,7 +66,7 @@ public class SettingsPanel extends VBox {
     private LanguageMode displayLanguageMode = LanguageMode.ZH_CN;
 
     public SettingsPanel() {
-        setSpacing(14);
+        setSpacing(16);
         setPadding(new Insets(24));
         setPrefWidth(336);
         setMinWidth(336);
@@ -65,9 +83,30 @@ public class SettingsPanel extends VBox {
         forbiddenInfoButton = createInfoButton();
         forbiddenCheck = new CheckBox();
 
+        perMoveEnableCheck = new CheckBox("Per Move Timer");
+
         timerLabel = new Label("Timer");
         timerBox = new ComboBox<>();
         timerBox.getItems().addAll(TimerOption.values());
+
+        perMoveMinutesLabel = new Label("Min");
+        perMoveMinutesField = createTimeField();
+        perMoveSecondsLabel = new Label("Sec");
+        perMoveSecondsField = createTimeField();
+        perMoveCustomRow = new HBox(8, perMoveMinutesLabel, perMoveMinutesField, perMoveSecondsLabel, perMoveSecondsField);
+        perMoveCustomRow.setAlignment(Pos.CENTER_LEFT);
+
+        totalEnableCheck = new CheckBox("Total Timer");
+        totalTimerLabel = new Label("Total Timer");
+        totalTimerBox = new ComboBox<>();
+        totalTimerBox.getItems().addAll(TotalTimerOption.values());
+
+        totalMinutesLabel = new Label("Min");
+        totalMinutesField = createTimeField();
+        totalSecondsLabel = new Label("Sec");
+        totalSecondsField = createTimeField();
+        totalCustomRow = new HBox(8, totalMinutesLabel, totalMinutesField, totalSecondsLabel, totalSecondsField);
+        totalCustomRow.setAlignment(Pos.CENTER_LEFT);
 
         appearanceLabel = new Label("Appearance");
         themeBox = new ComboBox<>();
@@ -86,7 +125,10 @@ public class SettingsPanel extends VBox {
         HBox forbiddenRow = new HBox(6, forbiddenLabel, forbiddenInfoButton);
         forbiddenRow.setAlignment(Pos.CENTER_LEFT);
 
-        VBox rulesGroup = createGroup(boardSizeLabel, boardSizeBox, forbiddenRow, forbiddenCheck, timerLabel, timerBox);
+        VBox perMoveSection = new VBox(8, perMoveEnableCheck, timerLabel, timerBox, perMoveCustomRow);
+        VBox totalSection = new VBox(8, totalEnableCheck, totalTimerLabel, totalTimerBox, totalCustomRow);
+
+        VBox rulesGroup = createGroup(boardSizeLabel, boardSizeBox, forbiddenRow, forbiddenCheck, perMoveSection, totalSection);
         VBox appearanceGroup = createGroup(appearanceLabel, themeBox, languageLabel, languageBox);
         VBox prefGroup = createGroup(coordinatesCheck, lastMoveMarkerCheck);
 
@@ -94,12 +136,21 @@ public class SettingsPanel extends VBox {
         buttonBox.setAlignment(Pos.CENTER_LEFT);
 
         getChildren().addAll(titleLabel, hintLabel, rulesGroup, appearanceGroup, prefGroup, buttonBox);
+
+        bindTimerControls();
+        updateTimerSectionState();
+    }
+
+    private TextField createTimeField() {
+        TextField field = new TextField();
+        field.setPrefWidth(44);
+        return field;
     }
 
     private VBox createGroup(Node... nodes) {
-        VBox box = new VBox(10);
+        VBox box = new VBox(12);
         box.getChildren().addAll(nodes);
-        box.setPadding(new Insets(14));
+        box.setPadding(new Insets(16));
         return box;
     }
 
@@ -111,7 +162,96 @@ public class SettingsPanel extends VBox {
         return button;
     }
 
-    public void setTexts(String title, String hint, String boardSize, String forbidden, String timer,
+    private void bindTimerControls() {
+        perMoveEnableCheck.setOnAction(event -> {
+            if (perMoveEnableCheck.isSelected()) {
+                totalEnableCheck.setSelected(false);
+            }
+            updateTimerSectionState();
+        });
+
+        totalEnableCheck.setOnAction(event -> {
+            if (totalEnableCheck.isSelected()) {
+                perMoveEnableCheck.setSelected(false);
+            }
+            updateTimerSectionState();
+        });
+
+        timerBox.setOnAction(event -> updateTimerSectionState());
+        totalTimerBox.setOnAction(event -> updateTimerSectionState());
+    }
+
+    private void updateTimerSectionState() {
+        boolean perMoveEnabled = perMoveEnableCheck.isSelected();
+        boolean totalEnabled = totalEnableCheck.isSelected();
+
+        timerLabel.setDisable(!perMoveEnabled);
+        timerBox.setDisable(!perMoveEnabled);
+        perMoveCustomRow.setDisable(!perMoveEnabled);
+
+        totalTimerLabel.setDisable(!totalEnabled);
+        totalTimerBox.setDisable(!totalEnabled);
+        totalCustomRow.setDisable(!totalEnabled);
+
+        boolean showPerMoveCustom = perMoveEnabled && timerBox.getValue() == TimerOption.CUSTOM;
+        boolean showTotalCustom = totalEnabled && totalTimerBox.getValue() == TotalTimerOption.CUSTOM;
+
+        perMoveCustomRow.setVisible(showPerMoveCustom);
+        perMoveCustomRow.setManaged(showPerMoveCustom);
+        totalCustomRow.setVisible(showTotalCustom);
+        totalCustomRow.setManaged(showTotalCustom);
+
+        if (showPerMoveCustom) {
+            ensureDefaultTime(perMoveMinutesField, perMoveSecondsField, "01", "00");
+        }
+        if (showTotalCustom) {
+            ensureDefaultTime(totalMinutesField, totalSecondsField, "10", "00");
+        }
+    }
+
+    private void applyTimerModeState(TimerMode timerMode) {
+        if (timerMode == TimerMode.TOTAL) {
+            totalEnableCheck.setSelected(true);
+            perMoveEnableCheck.setSelected(false);
+            return;
+        }
+        perMoveEnableCheck.setSelected(true);
+        totalEnableCheck.setSelected(false);
+    }
+
+    private void ensureDefaultTime(TextField minutesField, TextField secondsField,
+                                   String minutes, String seconds) {
+        if (minutesField.getText().isBlank()) {
+            minutesField.setText(minutes);
+        }
+        if (secondsField.getText().isBlank()) {
+            secondsField.setText(seconds);
+        }
+    }
+
+    private int parseTimeField(TextField field) {
+        try {
+            int value = Integer.parseInt(field.getText().trim());
+            if (value < 0) {
+                return 0;
+            }
+            return Math.min(99, value);
+        } catch (NumberFormatException ex) {
+            return 0;
+        }
+    }
+
+    private void loadCustomTime(TextField minutesField, TextField secondsField, int minutes, int seconds) {
+        if (minutes > 0 || seconds > 0) {
+            minutesField.setText(String.format("%02d", Math.min(99, minutes)));
+            secondsField.setText(String.format("%02d", Math.min(99, seconds)));
+        } else {
+            minutesField.setText("");
+            secondsField.setText("");
+        }
+    }
+    public void setTexts(String title, String hint, String boardSize, String forbidden, String perMoveTimer,
+                         String totalTimer, String minutesLabel, String secondsLabel,
                          String appearance, String language, String showCoordinates, String showMarker,
                          String apply, String close, LanguageMode languageMode) {
         this.displayLanguageMode = languageMode;
@@ -120,7 +260,14 @@ public class SettingsPanel extends VBox {
         hintLabel.setText(hint);
         boardSizeLabel.setText(boardSize);
         forbiddenLabel.setText(forbidden);
-        timerLabel.setText(timer);
+        perMoveEnableCheck.setText(perMoveTimer);
+        timerLabel.setText(perMoveTimer);
+        totalEnableCheck.setText(totalTimer);
+        totalTimerLabel.setText(totalTimer);
+        perMoveMinutesLabel.setText(minutesLabel);
+        perMoveSecondsLabel.setText(secondsLabel);
+        totalMinutesLabel.setText(minutesLabel);
+        totalSecondsLabel.setText(secondsLabel);
         appearanceLabel.setText(appearance);
         languageLabel.setText(language);
         coordinatesCheck.setText(showCoordinates);
@@ -144,41 +291,49 @@ public class SettingsPanel extends VBox {
 
         titleLabel.setStyle("""
                 -fx-text-fill: %s;
-                -fx-font-size: 18px;
+                -fx-font-size: 20px;
                 -fx-font-weight: 600;
                 """.formatted(primaryText));
 
         hintLabel.setStyle("""
                 -fx-text-fill: %s;
-                -fx-font-size: 12px;
+                -fx-font-size: 13px;
                 """.formatted(secondaryText));
 
         String labelStyle = """
                 -fx-text-fill: %s;
-                -fx-font-size: 13px;
+                -fx-font-size: 14px;
                 -fx-font-weight: 600;
                 """.formatted(primaryText);
 
         boardSizeLabel.setStyle(labelStyle);
         forbiddenLabel.setStyle(labelStyle);
         timerLabel.setStyle(labelStyle);
+        totalTimerLabel.setStyle(labelStyle);
         appearanceLabel.setStyle(labelStyle);
         languageLabel.setStyle(labelStyle);
 
-        coordinatesCheck.setStyle("-fx-text-fill: %s;".formatted(primaryText));
-        lastMoveMarkerCheck.setStyle("-fx-text-fill: %s;".formatted(primaryText));
-        forbiddenCheck.setStyle("-fx-text-fill: %s;".formatted(primaryText));
+        coordinatesCheck.setStyle("-fx-text-fill: %s; -fx-font-size: 13px;".formatted(primaryText));
+        lastMoveMarkerCheck.setStyle("-fx-text-fill: %s; -fx-font-size: 13px;".formatted(primaryText));
+        forbiddenCheck.setStyle("-fx-text-fill: %s; -fx-font-size: 13px;".formatted(primaryText));
+        perMoveEnableCheck.setStyle("-fx-text-fill: %s; -fx-font-size: 13px;".formatted(primaryText));
+        totalEnableCheck.setStyle("-fx-text-fill: %s; -fx-font-size: 13px;".formatted(primaryText));
+        perMoveMinutesLabel.setStyle("-fx-text-fill: %s; -fx-font-size: 12px;".formatted(primaryText));
+        perMoveSecondsLabel.setStyle("-fx-text-fill: %s; -fx-font-size: 12px;".formatted(primaryText));
+        totalMinutesLabel.setStyle("-fx-text-fill: %s; -fx-font-size: 12px;".formatted(primaryText));
+        totalSecondsLabel.setStyle("-fx-text-fill: %s; -fx-font-size: 12px;".formatted(primaryText));
 
         String comboStyle = """
                 -fx-background-color: %s;
                 -fx-border-color: %s;
                 -fx-border-radius: 12;
                 -fx-background-radius: 12;
-                -fx-font-size: 13px;
+                -fx-font-size: 14px;
                 """.formatted(buttonBg, buttonBorder);
 
         boardSizeBox.setStyle(comboStyle);
         timerBox.setStyle(comboStyle);
+        totalTimerBox.setStyle(comboStyle);
         themeBox.setStyle(comboStyle);
         languageBox.setStyle(comboStyle);
 
@@ -189,7 +344,8 @@ public class SettingsPanel extends VBox {
                 -fx-background-radius: 12;
                 -fx-text-fill: %s;
                 -fx-font-weight: 600;
-                -fx-pref-height: 38;
+                -fx-font-size: 14px;
+                -fx-pref-height: 40;
                 """.formatted(buttonBg, buttonBorder, primaryText));
 
         closeButton.setStyle("""
@@ -199,7 +355,8 @@ public class SettingsPanel extends VBox {
                 -fx-background-radius: 12;
                 -fx-text-fill: %s;
                 -fx-font-weight: 500;
-                -fx-pref-height: 38;
+                -fx-font-size: 14px;
+                -fx-pref-height: 40;
                 """.formatted(buttonBorder, primaryText));
 
         forbiddenInfoButton.setStyle("""
@@ -229,6 +386,7 @@ public class SettingsPanel extends VBox {
     private void refreshComboRenderers() {
         applyRenderer(boardSizeBox, value -> value == null ? "" : value.displayLabel(displayLanguageMode));
         applyRenderer(timerBox, value -> value == null ? "" : value.displayLabel(displayLanguageMode));
+        applyRenderer(totalTimerBox, value -> value == null ? "" : value.displayLabel(displayLanguageMode));
         applyRenderer(themeBox, value -> value == null ? "" : value.displayLabel(displayLanguageMode));
         applyRenderer(languageBox, value -> value == null ? "" : value.displayLabel(displayLanguageMode));
     }
@@ -265,19 +423,69 @@ public class SettingsPanel extends VBox {
                               boolean showCoordinates, boolean showLastMoveMarker) {
         boardSizeBox.setValue(pendingRuleConfig.boardSizeOption());
         forbiddenCheck.setSelected(pendingRuleConfig.forbiddenMovesEnabled());
-        timerBox.setValue(pendingRuleConfig.timerOption());
+        timerBox.setValue(pendingRuleConfig.perMoveTimerOption());
+        totalTimerBox.setValue(pendingRuleConfig.totalTimerOption());
         themeBox.setValue(themeMode);
         languageBox.setValue(languageMode);
         coordinatesCheck.setSelected(showCoordinates);
         lastMoveMarkerCheck.setSelected(showLastMoveMarker);
+
+        applyTimerModeState(pendingRuleConfig.timerMode());
+        if (pendingRuleConfig.timerMode() == TimerMode.PER_MOVE
+                && pendingRuleConfig.perMoveTimerOption() == TimerOption.OFF) {
+            perMoveEnableCheck.setSelected(false);
+        }
+        if (pendingRuleConfig.timerMode() == TimerMode.TOTAL
+                && pendingRuleConfig.totalTimerOption() == TotalTimerOption.OFF) {
+            totalEnableCheck.setSelected(false);
+        }
+        loadCustomTime(perMoveMinutesField, perMoveSecondsField,
+                pendingRuleConfig.perMoveCustomMinutes(), pendingRuleConfig.perMoveCustomSeconds());
+        loadCustomTime(totalMinutesField, totalSecondsField,
+                pendingRuleConfig.totalCustomMinutes(), pendingRuleConfig.totalCustomSeconds());
+        updateTimerSectionState();
     }
 
     public RuleConfig buildPendingRuleConfig() {
+        int perMoveMinutes = parseTimeField(perMoveMinutesField);
+        int perMoveSeconds = parseTimeField(perMoveSecondsField);
+        int totalMinutes = parseTimeField(totalMinutesField);
+        int totalSeconds = parseTimeField(totalSecondsField);
+
+        TimerMode timerMode = TimerMode.PER_MOVE;
+        if (totalEnableCheck.isSelected()) {
+            timerMode = TimerMode.TOTAL;
+        } else if (!perMoveEnableCheck.isSelected()) {
+            timerMode = TimerMode.PER_MOVE;
+            timerBox.setValue(TimerOption.OFF);
+            totalTimerBox.setValue(TotalTimerOption.OFF);
+            perMoveMinutes = 0;
+            perMoveSeconds = 0;
+            totalMinutes = 0;
+            totalSeconds = 0;
+        }
+
         return new RuleConfig(
-                boardSizeBox.getValue() == null ? BoardSizeOption.SIZE_15 : boardSizeBox.getValue(),
-                forbiddenCheck.isSelected(),
-                timerBox.getValue() == null ? TimerOption.OFF : timerBox.getValue()
+            boardSizeBox.getValue() == null ? BoardSizeOption.SIZE_15 : boardSizeBox.getValue(),
+            forbiddenCheck.isSelected(),
+            timerBox.getValue() == null ? TimerOption.OFF : timerBox.getValue(),
+            perMoveMinutes,
+            perMoveSeconds,
+            totalTimerBox.getValue() == null ? TotalTimerOption.OFF : totalTimerBox.getValue(),
+            totalMinutes,
+            totalSeconds,
+            timerMode
         );
+    }
+
+    public TimerMode selectedTimerMode() {
+        if (totalEnableCheck.isSelected()) {
+            return TimerMode.TOTAL;
+        }
+        if (perMoveEnableCheck.isSelected()) {
+            return TimerMode.PER_MOVE;
+        }
+        return TimerMode.PER_MOVE;
     }
 
     public ThemeMode selectedThemeMode() {
@@ -294,6 +502,14 @@ public class SettingsPanel extends VBox {
 
     public boolean isShowLastMoveMarkerSelected() {
         return lastMoveMarkerCheck.isSelected();
+    }
+
+    public boolean isPerMoveTimerEnabled() {
+        return perMoveEnableCheck.isSelected();
+    }
+
+    public boolean isTotalTimerEnabled() {
+        return totalEnableCheck.isSelected();
     }
 
     public Button getApplyButton() {

@@ -30,7 +30,7 @@ public class BottomStatusView extends BorderPane {
     public void applyTheme(String subtleText) {
         String style = """
                 -fx-text-fill: %s;
-                -fx-font-size: 12px;
+                -fx-font-size: 13px;
                 -fx-font-weight: 400;
                 """.formatted(subtleText);
         leftLabel.setStyle(style);

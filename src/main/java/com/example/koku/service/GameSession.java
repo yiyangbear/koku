@@ -1,6 +1,9 @@
 package com.example.koku.service;
 
 import com.example.koku.config.RuleConfig;
+import com.example.koku.config.TimerMode;
+import com.example.koku.config.TimerOption;
+import com.example.koku.config.TotalTimerOption;
 import com.example.koku.domain.GameResult;
 import com.example.koku.domain.GameStatus;
 import com.example.koku.domain.GomokuEngine;
@@ -19,14 +22,22 @@ public class GameSession {
         this.ruleConfig = ruleConfig;
         this.engine = new GomokuEngine(ruleConfig.boardSizeOption().size(), ruleConfig.forbiddenMovesEnabled());
         this.timerService = new TimerService();
-        this.timerService.configure(ruleConfig.timerOption());
+        this.timerService.configure(
+                ruleConfig.timerMode(),
+                resolvePerMoveSeconds(ruleConfig),
+                resolveTotalSeconds(ruleConfig)
+        );
         this.timerService.startTurn(Player.BLACK);
     }
 
     public void applyRuleConfigAndNewMatch(RuleConfig ruleConfig) {
         this.ruleConfig = ruleConfig;
         this.engine = new GomokuEngine(ruleConfig.boardSizeOption().size(), ruleConfig.forbiddenMovesEnabled());
-        this.timerService.configure(ruleConfig.timerOption());
+        this.timerService.configure(
+                ruleConfig.timerMode(),
+                resolvePerMoveSeconds(ruleConfig),
+                resolveTotalSeconds(ruleConfig)
+        );
         this.timerService.startTurn(Player.BLACK);
     }
 
@@ -76,7 +87,11 @@ public class GameSession {
 
     public void newMatch() {
         this.engine = new GomokuEngine(ruleConfig.boardSizeOption().size(), ruleConfig.forbiddenMovesEnabled());
-        this.timerService.configure(ruleConfig.timerOption());
+        this.timerService.configure(
+                ruleConfig.timerMode(),
+                resolvePerMoveSeconds(ruleConfig),
+                resolveTotalSeconds(ruleConfig)
+        );
         this.timerService.startTurn(Player.BLACK);
     }
 
@@ -99,6 +114,30 @@ public class GameSession {
 
     public long getTurnRemainingMillis() {
         return timerService.getRemainingMillis();
+    }
+
+    public long getPlayerRemainingMillis(Player player) {
+        return timerService.getRemainingMillis(player);
+    }
+
+    private long resolvePerMoveSeconds(RuleConfig ruleConfig) {
+        if (ruleConfig.timerMode() != TimerMode.PER_MOVE) {
+            return 0;
+        }
+        if (ruleConfig.perMoveTimerOption() == TimerOption.CUSTOM) {
+            return (long) ruleConfig.perMoveCustomMinutes() * 60L + ruleConfig.perMoveCustomSeconds();
+        }
+        return ruleConfig.perMoveTimerOption().seconds();
+    }
+
+    private long resolveTotalSeconds(RuleConfig ruleConfig) {
+        if (ruleConfig.timerMode() != TimerMode.TOTAL) {
+            return 0;
+        }
+        if (ruleConfig.totalTimerOption() == TotalTimerOption.CUSTOM) {
+            return (long) ruleConfig.totalCustomMinutes() * 60L + ruleConfig.totalCustomSeconds();
+        }
+        return ruleConfig.totalTimerOption().seconds();
     }
 
     public Player getTimerActivePlayer() {

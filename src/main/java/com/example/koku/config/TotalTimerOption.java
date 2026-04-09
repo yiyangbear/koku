@@ -1,21 +1,27 @@
 package com.example.koku.config;
 
-public enum TimerOption {
+public enum TotalTimerOption {
     OFF(0),
-    SEC_15(15),
-    SEC_30(30),
-    SEC_60(60),
-    SEC_120(120),
+    MIN_5(5),
+    MIN_10(10),
+    MIN_15(15),
+    MIN_30(30),
+    MIN_45(45),
+    MIN_60(60),
     CUSTOM(-1);
 
-    private final int seconds;
+    private final int minutes;
 
-    TimerOption(int seconds) {
-        this.seconds = seconds;
+    TotalTimerOption(int minutes) {
+        this.minutes = minutes;
+    }
+
+    public int minutes() {
+        return minutes;
     }
 
     public int seconds() {
-        return seconds;
+        return minutes * 60;
     }
 
     public String displayLabel(LanguageMode languageMode) {
@@ -25,6 +31,6 @@ public enum TimerOption {
         if (this == CUSTOM) {
             return languageMode == LanguageMode.ZH_CN ? "自定义..." : "Custom...";
         }
-        return seconds + "s";
+        return languageMode == LanguageMode.ZH_CN ? minutes + "分钟" : minutes + " min";
     }
 }

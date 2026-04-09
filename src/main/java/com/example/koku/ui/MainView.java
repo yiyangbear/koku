@@ -3,6 +3,8 @@ package com.example.koku.ui;
 import com.example.koku.config.AppSettings;
 import com.example.koku.config.LanguageMode;
 import com.example.koku.config.RuleConfig;
+import com.example.koku.domain.GameStatus;
+import com.example.koku.domain.Player;
 import com.example.koku.service.GameSession;
 import com.example.koku.service.I18nService;
 import com.example.koku.service.SettingsService;
@@ -10,6 +12,7 @@ import com.example.koku.service.ThemeService;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
@@ -17,12 +20,14 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.text.Font;
 import javafx.util.Duration;
 
 public class MainView extends BorderPane {
     private final SettingsService settingsService;
     private final ThemeService themeService;
     private final I18nService i18nService;
+    private final String fontFamily;
 
     private GameSession session;
 
@@ -31,6 +36,7 @@ public class MainView extends BorderPane {
     private final BottomStatusView bottomStatusView;
     private final BoardCanvas boardCanvas;
     private final SettingsPanel settingsPanel;
+    private StackPane boardWrap;
 
     private final StackPane panelHost;
     private Timeline panelAnimation;
@@ -45,6 +51,7 @@ public class MainView extends BorderPane {
         this.i18nService = new I18nService(settingsService.getSettings().getLanguageMode());
 
         AppSettings settings = settingsService.getSettings();
+        this.fontFamily = loadFontFamily();
         this.session = new GameSession(settings.getCurrentRuleConfig());
 
         this.topBarView = new TopBarView();
@@ -64,6 +71,8 @@ public class MainView extends BorderPane {
         this.uiTicker = new Timeline(new KeyFrame(Duration.millis(120), event -> onUiTick()));
         this.uiTicker.setCycleCount(Timeline.INDEFINITE);
         this.uiTicker.play();
+
+        bindAlignment();
     }
 
     private void buildLayout() {
@@ -71,7 +80,7 @@ public class MainView extends BorderPane {
         centerColumn.setAlignment(Pos.CENTER);
         centerColumn.setPadding(new Insets(18, 26, 18, 26));
 
-        StackPane boardWrap = new StackPane(boardCanvas);
+        boardWrap = new StackPane(boardCanvas);
         boardWrap.setAlignment(Pos.CENTER);
         boardWrap.setPadding(new Insets(24));
         centerColumn.getChildren().add(boardWrap);
@@ -92,6 +101,35 @@ public class MainView extends BorderPane {
 
         setCenter(mainShell);
         setRight(panelHost);
+    }
+
+    private void bindAlignment() {
+        widthProperty().addListener((obs, oldVal, newVal) -> scheduleTopBarAlignment());
+        heightProperty().addListener((obs, oldVal, newVal) -> scheduleTopBarAlignment());
+        panelHost.widthProperty().addListener((obs, oldVal, newVal) -> scheduleTopBarAlignment());
+        if (boardWrap != null) {
+            boardWrap.layoutBoundsProperty().addListener((obs, oldVal, newVal) -> scheduleTopBarAlignment());
+        }
+        topBarView.layoutBoundsProperty().addListener((obs, oldVal, newVal) -> scheduleTopBarAlignment());
+        sceneProperty().addListener((obs, oldVal, newVal) -> scheduleTopBarAlignment());
+        scheduleTopBarAlignment();
+    }
+
+    private void scheduleTopBarAlignment() {
+        Platform.runLater(this::updateTopBarAlignment);
+    }
+
+    private void updateTopBarAlignment() {
+        if (boardWrap == null || boardWrap.getScene() == null || topBarView.getScene() == null) {
+            return;
+        }
+        var boardBounds = boardWrap.localToScene(boardWrap.getBoundsInLocal());
+        double boardCenterX = boardBounds.getMinX() + boardBounds.getWidth() / 2.0;
+        double dividerCenterX = topBarView.getDividerCenterXInScene();
+        if (Double.isNaN(dividerCenterX)) {
+            return;
+        }
+        topBarView.setStatusOffset(boardCenterX - dividerCenterX);
     }
 
     private void bindActions() {
@@ -238,7 +276,8 @@ public class MainView extends BorderPane {
         boardCanvas.configure(
                 palette,
                 settings.isShowCoordinates(),
-                settings.isShowLastMoveMarker()
+                settings.isShowLastMoveMarker(),
+                fontFamily
         );
         applyBoardWrapTheme(palette);
     }
@@ -251,7 +290,8 @@ public class MainView extends BorderPane {
         boardCanvas.configure(
                 palette,
                 settings.isShowCoordinates(),
-                settings.isShowLastMoveMarker()
+                settings.isShowLastMoveMarker(),
+                fontFamily
         );
     }
 
@@ -260,8 +300,8 @@ public class MainView extends BorderPane {
     }
 
     private void applyShellTheme(ThemeService.Palette palette) {
-        setStyle("-fx-background-color: %s;".formatted(palette.windowBg()));
-        mainShell.setStyle("-fx-background-color: %s;".formatted(palette.windowBg()));
+        setStyle("-fx-background-color: %s; -fx-font-family: \"%s\";".formatted(palette.windowBg(), fontFamily));
+        mainShell.setStyle("-fx-background-color: %s; -fx-font-family: \"%s\";".formatted(palette.windowBg(), fontFamily));
 
         topBarView.applyTheme(
                 palette.primaryText(),
@@ -284,6 +324,14 @@ public class MainView extends BorderPane {
         );
     }
 
+    private String loadFontFamily() {
+        Font font = Font.loadFont(MainView.class.getResourceAsStream("/fonts/SmileySans-Oblique.ttf"), 12);
+        if (font == null) {
+            return Font.getDefault().getFamily();
+        }
+        return font.getFamily();
+    }
+
     private void applyBoardWrapTheme(ThemeService.Palette palette) {
         Region centerNode = (Region) mainShell.getCenter();
         if (centerNode instanceof VBox centerColumn && !centerColumn.getChildren().isEmpty()) {
@@ -303,11 +351,17 @@ public class MainView extends BorderPane {
 
         topBarView.setTexts(
                 i18nService.text("app.title"),
-                i18nService.text(session.getTopStatusKey()),
-                buildTopSubStatus(),
+                buildBlackStatusText(),
+                buildWhiteStatusText(),
+                buildTimerText(Player.BLACK),
+                buildTimerText(Player.WHITE),
                 i18nService.text("button.newMatch"),
                 i18nService.text("button.undo"),
                 i18nService.text("button.settings")
+        );
+        topBarView.applyStatusEmphasis(
+                shouldEmphasizeBlack(),
+                shouldEmphasizeWhite()
         );
 
         bottomStatusView.setTexts(
@@ -316,7 +370,7 @@ public class MainView extends BorderPane {
                         + i18nService.text(settings.getCurrentRuleConfig().forbiddenMovesEnabled()
                         ? "settings.forbidden.on" : "settings.forbidden.off")
                         + " · "
-                        + formatTimerLabel(settings.getCurrentRuleConfig().timerOption().seconds()),
+                        + formatTimerLabel(settings.getCurrentRuleConfig()),
                 i18nService.text("status.lastMove") + ": " + session.getLastMoveCoordinate()
         );
 
@@ -325,7 +379,10 @@ public class MainView extends BorderPane {
                 i18nService.text("hint.nextGame"),
                 i18nService.text("settings.boardSize"),
                 i18nService.text("settings.forbidden"),
-                i18nService.text("settings.timer"),
+                i18nService.text("settings.timer.perMove"),
+                i18nService.text("settings.timer.total"),
+                i18nService.text("settings.timer.minutes"),
+                i18nService.text("settings.timer.seconds"),
                 i18nService.text("settings.appearance"),
                 i18nService.text("settings.language"),
                 i18nService.text("settings.showCoordinates"),
@@ -336,47 +393,108 @@ public class MainView extends BorderPane {
         );
     }
 
-    private String buildTopSubStatus() {
-        String timerText = buildLiveTimerText();
-        String hint = settingsService.getSettings().hasPendingRuleChanges()
-                ? i18nService.text("hint.nextGame")
-                : "";
-
-        if (!timerText.isBlank() && !hint.isBlank()) {
-            return timerText + " · " + hint;
+    private String buildBlackStatusText() {
+        GameStatus status = session.getResult().status();
+        if (status == GameStatus.BLACK_WIN) {
+            return i18nService.text("result.blackWins");
         }
-        if (!timerText.isBlank()) {
-            return timerText;
-        }
-        return hint;
-    }
-
-    private String buildLiveTimerText() {
-        if (!session.isTimerEnabled() || session.isGameOver()) {
+        if (status == GameStatus.WHITE_WIN) {
             return "";
         }
-
-        long millis = session.getTurnRemainingMillis();
-        double seconds = millis / 1000.0;
-
-        if (i18nService.getLanguageMode() == LanguageMode.ZH_CN) {
-            return i18nService.text("status.turnTimer")
-                    + "："
-                    + String.format("%.1f秒", seconds);
+        if (status == GameStatus.DRAW) {
+            return i18nService.text("result.draw");
         }
-
-        return i18nService.text("status.turnTimer")
-                + ": "
-                + String.format("%.1fs", seconds);
+        return session.getCurrentPlayer() == Player.BLACK
+                ? i18nService.text("status.blackToMove")
+                : "";
     }
 
-    private String formatTimerLabel(int seconds) {
+    private String buildWhiteStatusText() {
+        GameStatus status = session.getResult().status();
+        if (status == GameStatus.WHITE_WIN) {
+            return i18nService.text("result.whiteWins");
+        }
+        if (status == GameStatus.BLACK_WIN) {
+            return "";
+        }
+        if (status == GameStatus.DRAW) {
+            return "";
+        }
+        return session.getCurrentPlayer() == Player.WHITE
+                ? i18nService.text("status.whiteToMove")
+                : "";
+    }
+
+    private boolean shouldEmphasizeBlack() {
+        GameStatus status = session.getResult().status();
+        if (status == GameStatus.BLACK_WIN) {
+            return true;
+        }
+        if (status == GameStatus.WHITE_WIN || status == GameStatus.DRAW) {
+            return false;
+        }
+        return session.getCurrentPlayer() == Player.BLACK;
+    }
+
+    private boolean shouldEmphasizeWhite() {
+        GameStatus status = session.getResult().status();
+        if (status == GameStatus.WHITE_WIN) {
+            return true;
+        }
+        if (status == GameStatus.BLACK_WIN || status == GameStatus.DRAW) {
+            return false;
+        }
+        return session.getCurrentPlayer() == Player.WHITE;
+    }
+
+    private String buildTimerText(Player player) {
+        if (!session.isTimerEnabled() || session.isGameOver()) {
+            return "00:00";
+        }
+        long millis = session.getPlayerRemainingMillis(player);
+        int totalSeconds = (int) Math.ceil(millis / 1000.0);
+        int minutes = Math.max(0, totalSeconds) / 60;
+        int seconds = Math.max(0, totalSeconds) % 60;
+        return String.format("%02d:%02d", minutes, seconds);
+    }
+
+    private String formatTimerLabel(RuleConfig ruleConfig) {
+        if (ruleConfig.timerMode() == com.example.koku.config.TimerMode.PER_MOVE) {
+            int seconds = resolvePerMoveSeconds(ruleConfig);
+            if (seconds <= 0) {
+                return i18nService.text("settings.timer.off");
+            }
+            return i18nService.getLanguageMode() == LanguageMode.ZH_CN
+                    ? "每手 " + formatClock(seconds)
+                    : "Per Move " + formatClock(seconds);
+        }
+        int seconds = resolveTotalSeconds(ruleConfig);
         if (seconds <= 0) {
             return i18nService.text("settings.timer.off");
         }
         return i18nService.getLanguageMode() == LanguageMode.ZH_CN
-                ? "棋钟 " + seconds + "秒"
-                : "Timer " + seconds + "s";
+                ? "全局 " + formatClock(seconds)
+                : "Total " + formatClock(seconds);
+    }
+
+    private int resolvePerMoveSeconds(RuleConfig ruleConfig) {
+        if (ruleConfig.perMoveTimerOption() == com.example.koku.config.TimerOption.CUSTOM) {
+            return ruleConfig.perMoveCustomMinutes() * 60 + ruleConfig.perMoveCustomSeconds();
+        }
+        return ruleConfig.perMoveTimerOption().seconds();
+    }
+
+    private int resolveTotalSeconds(RuleConfig ruleConfig) {
+        if (ruleConfig.totalTimerOption() == com.example.koku.config.TotalTimerOption.CUSTOM) {
+            return ruleConfig.totalCustomMinutes() * 60 + ruleConfig.totalCustomSeconds();
+        }
+        return ruleConfig.totalTimerOption().seconds();
+    }
+
+    private String formatClock(int totalSeconds) {
+        int minutes = Math.max(0, totalSeconds) / 60;
+        int seconds = Math.max(0, totalSeconds) % 60;
+        return String.format("%02d:%02d", minutes, seconds);
     }
 
     private void maybeShowResultDialog() {

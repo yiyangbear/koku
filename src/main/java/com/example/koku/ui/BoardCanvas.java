@@ -18,6 +18,7 @@ public class BoardCanvas extends Canvas {
     private ThemeService.Palette palette;
     private boolean showCoordinates;
     private boolean showLastMoveMarker;
+    private String fontFamily;
 
     private Runnable onBoardChanged;
 
@@ -30,10 +31,11 @@ public class BoardCanvas extends Canvas {
         setOnMouseClicked(this::handleMouseClicked);
     }
 
-    public void configure(ThemeService.Palette palette, boolean showCoordinates, boolean showLastMoveMarker) {
+    public void configure(ThemeService.Palette palette, boolean showCoordinates, boolean showLastMoveMarker, String fontFamily) {
         this.palette = palette;
         this.showCoordinates = showCoordinates;
         this.showLastMoveMarker = showLastMoveMarker;
+        this.fontFamily = fontFamily;
         draw();
     }
 
@@ -101,7 +103,11 @@ public class BoardCanvas extends Canvas {
         double cell = getCellSize();
 
         gc.setFill(Color.web(palette.subtleText()));
-        gc.setFont(Font.font(11));
+        if (fontFamily != null && !fontFamily.isBlank()) {
+            gc.setFont(Font.font(fontFamily, 12));
+        } else {
+            gc.setFont(Font.font(12));
+        }
 
         for (int i = 0; i < size; i++) {
             String colText = String.valueOf((char) ('A' + i));
