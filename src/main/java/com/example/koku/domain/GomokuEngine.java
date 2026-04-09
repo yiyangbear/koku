@@ -6,15 +6,19 @@ public class GomokuEngine {
     private final Board board;
     private final MoveHistory moveHistory;
     private final WinChecker winChecker;
+    private final ForbiddenMoveChecker forbiddenMoveChecker;
+    private final boolean forbiddenMovesEnabled;
 
     private Player currentPlayer;
     private GameResult result;
     private String latestMessage;
 
-    public GomokuEngine(int boardSize) {
+    public GomokuEngine(int boardSize, boolean forbiddenMovesEnabled) {
         this.board = new Board(boardSize);
         this.moveHistory = new MoveHistory();
         this.winChecker = new WinChecker();
+        this.forbiddenMoveChecker = new ForbiddenMoveChecker();
+        this.forbiddenMovesEnabled = forbiddenMovesEnabled;
         this.currentPlayer = Player.BLACK;
         this.result = GameResult.inProgress();
         this.latestMessage = "";
@@ -68,6 +72,14 @@ public class GomokuEngine {
         board.placeStone(currentPlayer, position);
         Move move = new Move(currentPlayer, position);
         moveHistory.push(move);
+
+        if (forbiddenMovesEnabled && currentPlayer == Player.BLACK) {
+            if (forbiddenMoveChecker.isForbidden(board, position)) {
+                result = GameResult.whiteWin("forbidden");
+                latestMessage = "Forbidden move.";
+                return true;
+            }
+        }
 
         if (winChecker.hasFiveInARow(board, position)) {
             result = currentPlayer == Player.BLACK

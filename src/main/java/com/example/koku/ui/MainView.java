@@ -122,6 +122,7 @@ public class MainView extends BorderPane {
         });
 
         settingsPanel.getCloseButton().setOnAction(event -> hideSettingsPanel());
+        settingsPanel.getForbiddenInfoButton().setOnAction(event -> showForbiddenRulesDialog());
 
         settingsPanel.getApplyButton().setOnAction(event -> {
             settingsService.updatePendingRuleConfig(settingsPanel.buildPendingRuleConfig());
@@ -402,6 +403,14 @@ public class MainView extends BorderPane {
         alert.setTitle(i18nService.text("status.gameOver"));
         alert.setHeaderText(null);
         alert.setContentText(content);
+        alert.showAndWait();
+    }
+
+    private void showForbiddenRulesDialog() {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(i18nService.text("settings.forbidden"));
+        alert.setHeaderText(i18nService.text("forbidden.rules.title"));
+        alert.setContentText(i18nService.text("forbidden.rules.body"));
         alert.showAndWait();
     }
 }

@@ -13,6 +13,7 @@ import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.util.Callback;
 
@@ -24,6 +25,7 @@ public class SettingsPanel extends VBox {
     private final ComboBox<BoardSizeOption> boardSizeBox;
 
     private final Label forbiddenLabel;
+    private final Button forbiddenInfoButton;
     private final CheckBox forbiddenCheck;
 
     private final Label timerLabel;
@@ -60,6 +62,7 @@ public class SettingsPanel extends VBox {
         boardSizeBox.getItems().addAll(BoardSizeOption.values());
 
         forbiddenLabel = new Label("Forbidden Moves");
+        forbiddenInfoButton = createInfoButton();
         forbiddenCheck = new CheckBox();
 
         timerLabel = new Label("Timer");
@@ -80,7 +83,10 @@ public class SettingsPanel extends VBox {
         applyButton = new Button("Apply & New Match");
         closeButton = new Button("Close");
 
-        VBox rulesGroup = createGroup(boardSizeLabel, boardSizeBox, forbiddenLabel, forbiddenCheck, timerLabel, timerBox);
+        HBox forbiddenRow = new HBox(6, forbiddenLabel, forbiddenInfoButton);
+        forbiddenRow.setAlignment(Pos.CENTER_LEFT);
+
+        VBox rulesGroup = createGroup(boardSizeLabel, boardSizeBox, forbiddenRow, forbiddenCheck, timerLabel, timerBox);
         VBox appearanceGroup = createGroup(appearanceLabel, themeBox, languageLabel, languageBox);
         VBox prefGroup = createGroup(coordinatesCheck, lastMoveMarkerCheck);
 
@@ -95,6 +101,14 @@ public class SettingsPanel extends VBox {
         box.getChildren().addAll(nodes);
         box.setPadding(new Insets(14));
         return box;
+    }
+
+    private Button createInfoButton() {
+        Button button = new Button("?");
+        button.setPrefSize(18, 18);
+        button.setMinSize(18, 18);
+        button.setFocusTraversable(false);
+        return button;
     }
 
     public void setTexts(String title, String hint, String boardSize, String forbidden, String timer,
@@ -187,6 +201,17 @@ public class SettingsPanel extends VBox {
                 -fx-font-weight: 500;
                 -fx-pref-height: 38;
                 """.formatted(buttonBorder, primaryText));
+
+        forbiddenInfoButton.setStyle("""
+                -fx-background-color: %s;
+                -fx-border-color: %s;
+                -fx-border-radius: 9;
+                -fx-background-radius: 9;
+                -fx-text-fill: %s;
+                -fx-font-size: 10px;
+                -fx-font-weight: 700;
+                -fx-padding: 0;
+                """.formatted(buttonBg, buttonBorder, primaryText));
 
         getChildren().stream()
                 .filter(node -> node instanceof VBox)
@@ -293,5 +318,9 @@ public class SettingsPanel extends VBox {
 
     public CheckBox getLastMoveMarkerCheck() {
         return lastMoveMarkerCheck;
+    }
+
+    public Button getForbiddenInfoButton() {
+        return forbiddenInfoButton;
     }
 }

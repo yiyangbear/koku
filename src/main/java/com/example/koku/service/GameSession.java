@@ -17,7 +17,7 @@ public class GameSession {
 
     public GameSession(RuleConfig ruleConfig) {
         this.ruleConfig = ruleConfig;
-        this.engine = new GomokuEngine(ruleConfig.boardSizeOption().size());
+        this.engine = new GomokuEngine(ruleConfig.boardSizeOption().size(), ruleConfig.forbiddenMovesEnabled());
         this.timerService = new TimerService();
         this.timerService.configure(ruleConfig.timerOption());
         this.timerService.startTurn(Player.BLACK);
@@ -25,7 +25,7 @@ public class GameSession {
 
     public void applyRuleConfigAndNewMatch(RuleConfig ruleConfig) {
         this.ruleConfig = ruleConfig;
-        this.engine = new GomokuEngine(ruleConfig.boardSizeOption().size());
+        this.engine = new GomokuEngine(ruleConfig.boardSizeOption().size(), ruleConfig.forbiddenMovesEnabled());
         this.timerService.configure(ruleConfig.timerOption());
         this.timerService.startTurn(Player.BLACK);
     }
@@ -75,7 +75,7 @@ public class GameSession {
     }
 
     public void newMatch() {
-        this.engine = new GomokuEngine(ruleConfig.boardSizeOption().size());
+        this.engine = new GomokuEngine(ruleConfig.boardSizeOption().size(), ruleConfig.forbiddenMovesEnabled());
         this.timerService.configure(ruleConfig.timerOption());
         this.timerService.startTurn(Player.BLACK);
     }
