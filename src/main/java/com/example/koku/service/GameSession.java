@@ -52,6 +52,14 @@ public class GameSession {
         return engine.getBoardSize();
     }
 
+    public int getBoardRows() {
+        return engine.getBoardRows();
+    }
+
+    public int getBoardCols() {
+        return engine.getBoardCols();
+    }
+
     public Player getCurrentPlayer() {
         return engine.getCurrentPlayer();
     }
@@ -201,7 +209,6 @@ public class GameSession {
     }
 
     public String boardSizeLabel() {
-        int size = engine.getBoardSize();
-        return size + "x" + size;
+        return engine.getBoardCols() + "x" + engine.getBoardRows();
     }
 }

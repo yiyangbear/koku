@@ -10,6 +10,14 @@ import java.util.Optional;
 
 public interface GameEngine {
     int getBoardSize();
+    default int getBoardRows() {
+        return getBoardSize();
+    }
+
+    default int getBoardCols() {
+        return getBoardSize();
+    }
+
     Player getCurrentPlayer();
     GameResult getResult();
     GameStatus getStatus();

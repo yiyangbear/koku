@@ -11,6 +11,7 @@ import com.example.koku.service.GameSession;
 import com.example.koku.service.I18nService;
 import com.example.koku.service.SettingsService;
 import com.example.koku.service.ThemeService;
+import com.example.koku.ui.boards.ConnectFourBoardView;
 import com.example.koku.ui.boards.GameBoardView;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
@@ -32,6 +33,7 @@ public class MainView extends BorderPane {
     private final I18nService i18nService;
     private final String fontFamily;
     private final Runnable onBack;
+    private final GameDefinition gameDefinition;
 
     private GameSession session;
 
@@ -48,6 +50,7 @@ public class MainView extends BorderPane {
 
     private final Timeline uiTicker;
     private boolean gameOverDialogShown;
+    private boolean gameOverDialogScheduled;
 
     public MainView() {
         this(GameRegistry.gomoku(), null);
@@ -58,6 +61,7 @@ public class MainView extends BorderPane {
     }
 
     public MainView(GameDefinition gameDefinition, Runnable onBack) {
+        this.gameDefinition = gameDefinition;
         this.settingsService = new SettingsService();
         this.themeService = new ThemeService();
         this.i18nService = new I18nService(settingsService.getSettings().getLanguageMode());
@@ -71,11 +75,16 @@ public class MainView extends BorderPane {
         this.bottomStatusView = new BottomStatusView();
         this.boardView = gameDefinition.boardViewFactory().create(session);
         this.settingsPanel = new SettingsPanel();
+        this.settingsPanel.configureCapabilities(
+                gameDefinition.supportsBoardSize(),
+                gameDefinition.supportsForbiddenMoves()
+        );
 
         this.mainShell = new BorderPane();
         this.panelHost = new StackPane(settingsPanel);
         this.panelVisible = false;
         this.gameOverDialogShown = false;
+        this.gameOverDialogScheduled = false;
 
         buildLayout();
         bindActions();
@@ -160,12 +169,14 @@ public class MainView extends BorderPane {
                 session.newMatch();
             }
             gameOverDialogShown = false;
+            gameOverDialogScheduled = false;
             refreshAll();
         });
 
         topBarView.getUndoButton().setOnAction(event -> {
             session.undo();
             gameOverDialogShown = false;
+            gameOverDialogScheduled = false;
             refreshAll();
         });
 
@@ -195,6 +206,7 @@ public class MainView extends BorderPane {
             session.applyRuleConfigAndNewMatch(applied);
 
             gameOverDialogShown = false;
+            gameOverDialogScheduled = false;
             hideSettingsPanel();
             refreshAll();
         });
@@ -228,11 +240,22 @@ public class MainView extends BorderPane {
             refreshBoardAndTexts();
             maybeShowResultDialog();
         });
+
+        if (boardView instanceof ConnectFourBoardView connectFourBoardView) {
+            connectFourBoardView.setOnMoveSettled(() -> {
+                refreshBoardAndTexts();
+                maybeShowResultDialog();
+            });
+        }
     }
 
     private void onUiTick() {
         boolean timedOut = session.checkTimeout();
         refreshTextsOnly();
+
+        if (session.isGameOver()) {
+            maybeShowResultDialog();
+        }
 
         if (timedOut) {
             boardView.draw();
@@ -386,12 +409,7 @@ public class MainView extends BorderPane {
         );
 
         bottomStatusView.setTexts(
-                session.boardSizeLabel()
-                        + " · "
-                        + i18nService.text(settings.getCurrentRuleConfig().forbiddenMovesEnabled()
-                        ? "settings.forbidden.on" : "settings.forbidden.off")
-                        + " · "
-                        + formatTimerLabel(settings.getCurrentRuleConfig()),
+                buildBottomSummary(settings),
                 i18nService.text("status.lastMove") + ": " + session.getLastMoveCoordinate()
         );
 
@@ -479,6 +497,30 @@ public class MainView extends BorderPane {
         return String.format("%02d:%02d", minutes, seconds);
     }
 
+    private String buildBottomSummary(AppSettings settings) {
+        return switch (gameDefinition.id()) {
+            case "ticTacToe" -> session.boardSizeLabel()
+                    + " · "
+                    + i18nService.text("summary.threeInRow");
+            case "connectFour" -> session.boardSizeLabel()
+                    + " · "
+                    + i18nService.text("summary.dropStyle")
+                    + " · "
+                    + i18nService.text("summary.fourInRow");
+            case "sixInRow" -> session.boardSizeLabel()
+                    + " · "
+                    + i18nService.text("summary.sixInRow")
+                    + " · "
+                    + i18nService.text("summary.twoStonesPerTurn");
+            default -> session.boardSizeLabel()
+                    + " · "
+                    + i18nService.text("summary.fiveInRow")
+                    + " · "
+                    + i18nService.text(settings.getCurrentRuleConfig().forbiddenMovesEnabled()
+                    ? "settings.forbidden.on" : "settings.forbidden.off");
+        };
+    }
+
     private String formatTimerLabel(RuleConfig ruleConfig) {
         if (ruleConfig.timerMode() == com.example.koku.config.TimerMode.PER_MOVE) {
             int seconds = resolvePerMoveSeconds(ruleConfig);
@@ -519,30 +561,40 @@ public class MainView extends BorderPane {
     }
 
     private void maybeShowResultDialog() {
-        if (!session.isGameOver() || gameOverDialogShown) {
+        if (!session.isGameOver() || gameOverDialogShown || gameOverDialogScheduled) {
             return;
         }
 
-        gameOverDialogShown = true;
+        gameOverDialogScheduled = true;
+        Platform.runLater(() -> {
+            gameOverDialogScheduled = false;
+            if (!session.isGameOver() || gameOverDialogShown) {
+                return;
+            }
 
-        String detailKey = session.getResultDetailKey();
-        String content;
-        if (detailKey != null) {
-            content = i18nService.text(detailKey);
-        } else {
-            content = switch (session.getResult().status()) {
+            gameOverDialogShown = true;
+
+            String summary = switch (session.getResult().status()) {
                 case BLACK_WIN -> i18nService.text("result.blackWins");
                 case WHITE_WIN -> i18nService.text("result.whiteWins");
                 case DRAW -> i18nService.text("result.draw");
-                default -> session.getLatestMessage();
+                default -> i18nService.text("status.gameOver");
             };
-        }
 
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle(i18nService.text("status.gameOver"));
-        alert.setHeaderText(null);
-        alert.setContentText(content);
-        alert.showAndWait();
+            String detailKey = session.getResultDetailKey();
+            String content;
+            if (detailKey != null) {
+                content = i18nService.text(detailKey);
+            } else {
+                content = null;
+            }
+
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle(i18nService.text("status.gameOver"));
+            alert.setHeaderText(summary);
+            alert.setContentText(content);
+            alert.showAndWait();
+        });
     }
 
     private void showForbiddenRulesDialog() {

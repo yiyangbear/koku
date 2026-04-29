@@ -12,7 +12,7 @@ public class AppSettings {
     public AppSettings() {
         this.themeMode = ThemeMode.DARK;
         this.languageMode = LanguageMode.ZH_CN;
-        this.showCoordinates = true;
+        this.showCoordinates = false;
         this.showLastMoveMarker = true;
         this.currentRuleConfig = RuleConfig.defaultConfig();
         this.pendingRuleConfig = this.currentRuleConfig;

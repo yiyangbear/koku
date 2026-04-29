@@ -26,10 +26,13 @@ public class SettingsPanel extends VBox {
 
     private final Label boardSizeLabel;
     private final ComboBox<BoardSizeOption> boardSizeBox;
+    private final VBox boardSizeSection;
 
     private final Label forbiddenLabel;
     private final Button forbiddenInfoButton;
     private final CheckBox forbiddenCheck;
+    private final HBox forbiddenRow;
+    private final VBox forbiddenSection;
 
     private final CheckBox perMoveEnableCheck;
     private final Label timerLabel;
@@ -122,13 +125,15 @@ public class SettingsPanel extends VBox {
         applyButton = new Button("Apply & New Match");
         closeButton = new Button("Close");
 
-        HBox forbiddenRow = new HBox(6, forbiddenLabel, forbiddenInfoButton);
+        forbiddenRow = new HBox(6, forbiddenLabel, forbiddenInfoButton);
         forbiddenRow.setAlignment(Pos.CENTER_LEFT);
+        boardSizeSection = new VBox(8, boardSizeLabel, boardSizeBox);
+        forbiddenSection = new VBox(8, forbiddenRow, forbiddenCheck);
 
         VBox perMoveSection = new VBox(8, perMoveEnableCheck, timerLabel, timerBox, perMoveCustomRow);
         VBox totalSection = new VBox(8, totalEnableCheck, totalTimerLabel, totalTimerBox, totalCustomRow);
 
-        VBox rulesGroup = createGroup(boardSizeLabel, boardSizeBox, forbiddenRow, forbiddenCheck, perMoveSection, totalSection);
+        VBox rulesGroup = createGroup(boardSizeSection, forbiddenSection, perMoveSection, totalSection);
         VBox appearanceGroup = createGroup(appearanceLabel, themeBox, languageLabel, languageBox);
         VBox prefGroup = createGroup(coordinatesCheck, lastMoveMarkerCheck);
 
@@ -444,6 +449,13 @@ public class SettingsPanel extends VBox {
         loadCustomTime(totalMinutesField, totalSecondsField,
                 pendingRuleConfig.totalCustomMinutes(), pendingRuleConfig.totalCustomSeconds());
         updateTimerSectionState();
+    }
+
+    public void configureCapabilities(boolean supportsBoardSize, boolean supportsForbiddenMoves) {
+        boardSizeSection.setManaged(supportsBoardSize);
+        boardSizeSection.setVisible(supportsBoardSize);
+        forbiddenSection.setManaged(supportsForbiddenMoves);
+        forbiddenSection.setVisible(supportsForbiddenMoves);
     }
 
     public RuleConfig buildPendingRuleConfig() {

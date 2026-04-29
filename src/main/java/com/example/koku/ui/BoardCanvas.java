@@ -21,6 +21,8 @@ public class BoardCanvas extends Canvas implements GameBoardView {
     private boolean showCoordinates;
     private boolean showLastMoveMarker;
     private String fontFamily;
+    private Integer hoverRow;
+    private Integer hoverCol;
 
     private Runnable onBoardChanged;
 
@@ -32,6 +34,12 @@ public class BoardCanvas extends Canvas implements GameBoardView {
     public BoardCanvas(GameSession session) {
         super(CANVAS_SIZE, CANVAS_SIZE);
         this.session = session;
+        setOnMouseMoved(this::handleMouseMoved);
+        setOnMouseExited(event -> {
+            hoverRow = null;
+            hoverCol = null;
+            draw();
+        });
         setOnMouseClicked(this::handleMouseClicked);
     }
 
@@ -75,6 +83,7 @@ public class BoardCanvas extends Canvas implements GameBoardView {
             drawCoordinates(gc);
         }
 
+        drawHoverStone(gc);
         drawStones(gc);
 
         if (showLastMoveMarker) {
@@ -174,6 +183,38 @@ public class BoardCanvas extends Canvas implements GameBoardView {
         }
     }
 
+    private void drawHoverStone(GraphicsContext gc) {
+        if (session.isGameOver() || hoverRow == null || hoverCol == null) {
+            return;
+        }
+        if (session.getStoneAt(hoverRow, hoverCol) != null) {
+            return;
+        }
+
+        double cell = getCellSize();
+        double stoneSize = cell * 0.78;
+        double centerX = getGridStart() + hoverCol * cell;
+        double centerY = getGridStart() + hoverRow * cell;
+        double x = centerX - stoneSize / 2.0;
+        double y = centerY - stoneSize / 2.0;
+
+        if (session.getCurrentPlayer() == Player.BLACK) {
+            gc.setFill(Color.web(palette.blackStone(), 0.35));
+            gc.fillOval(x, y, stoneSize, stoneSize);
+            if (palette.darkMode() && palette.blackStoneBorder() != null) {
+                gc.setStroke(Color.web(palette.blackStoneBorder(), 0.45));
+                gc.setLineWidth(1.2);
+                gc.strokeOval(x, y, stoneSize, stoneSize);
+            }
+        } else {
+            gc.setFill(Color.web(palette.whiteStone(), 0.55));
+            gc.fillOval(x, y, stoneSize, stoneSize);
+            gc.setStroke(Color.web(palette.whiteStoneBorder(), 0.55));
+            gc.setLineWidth(1.0);
+            gc.strokeOval(x, y, stoneSize, stoneSize);
+        }
+    }
+
     private void drawLastMoveMarker(GraphicsContext gc) {
         Optional<Move> lastMove = session.getLastMove();
         if (lastMove.isEmpty()) {
@@ -186,6 +227,29 @@ public class BoardCanvas extends Canvas implements GameBoardView {
 
         gc.setFill(Color.web(palette.accent()));
         gc.fillOval(centerX - 4, centerY - 4, 8, 8);
+    }
+
+    private void handleMouseMoved(MouseEvent event) {
+        int size = session.getBoardSize();
+        double cell = getCellSize();
+
+        int col = (int) Math.round((event.getX() - getGridStart()) / cell);
+        int row = (int) Math.round((event.getY() - getGridStart()) / cell);
+
+        if (row < 0 || row >= size || col < 0 || col >= size) {
+            if (hoverRow != null || hoverCol != null) {
+                hoverRow = null;
+                hoverCol = null;
+                draw();
+            }
+            return;
+        }
+
+        if (!Integer.valueOf(row).equals(hoverRow) || !Integer.valueOf(col).equals(hoverCol)) {
+            hoverRow = row;
+            hoverCol = col;
+            draw();
+        }
     }
 
     private void handleMouseClicked(MouseEvent event) {
