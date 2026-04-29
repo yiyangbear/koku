@@ -1,0 +1,71 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Check tools
+        shell: pwsh
+        run: |
+          java -version
+          javac -version
+          jpackage --version
+          mvn -version
+
+      - name: Build JAR
+        shell: pwsh
+        run: |
+          mvn clean package
+
+      - name: Prepare jpackage input
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build/package-input
+          Copy-Item target/koku-1.0-SNAPSHOT.jar build/package-input/
+
+          mvn dependency:copy-dependencies `
+            -DincludeScope=runtime `
+            -DoutputDirectory=build/package-input
+
+          Get-ChildItem build/package-input
+
+      - name: Build Windows EXE
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build/dist
+
+          jpackage `
+            --type exe `
+            --name Koku `
+            --app-version 1.0.0 `
+            --input build/package-input `
+            --main-jar koku-1.0-SNAPSHOT.jar `
+            --main-class com.example.koku.app.KokuLauncher `
+            --dest build/dist `
+            --win-menu `
+            --win-shortcut
+
+      - name: List output
+        shell: pwsh
+        run: |
+          Get-ChildItem build/dist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: Koku-Windows-EXE
+          path: build/dist/*.exe
