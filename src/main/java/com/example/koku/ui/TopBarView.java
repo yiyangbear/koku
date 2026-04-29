@@ -25,6 +25,7 @@ public class TopBarView extends BorderPane {
     private final Circle blackIndicator;
     private final Circle whiteIndicator;
     private final StackPane statusPill;
+    private final Button backButton;
     private final Button newMatchButton;
     private final Button undoButton;
     private final Button settingsButton;
@@ -44,13 +45,14 @@ public class TopBarView extends BorderPane {
         whiteIndicator = new Circle(6);
         statusPill = new StackPane();
 
+        backButton = createTopButton("Back");
         newMatchButton = createTopButton("New Match");
         undoButton = createTopButton("Undo");
         settingsButton = createTopButton("Settings");
 
-        blackStatusLabel.setMinWidth(96);
+        blackStatusLabel.setMinWidth(86);
         blackStatusLabel.setAlignment(Pos.CENTER_RIGHT);
-        whiteStatusLabel.setMinWidth(96);
+        whiteStatusLabel.setMinWidth(86);
         whiteStatusLabel.setAlignment(Pos.CENTER_LEFT);
 
         HBox statusRow = new HBox(
@@ -71,7 +73,7 @@ public class TopBarView extends BorderPane {
         VBox centerBox = new VBox(statusPill);
         centerBox.setAlignment(Pos.CENTER);
 
-        HBox leftButtons = new HBox(10, newMatchButton);
+        HBox leftButtons = new HBox(10, backButton, newMatchButton);
         leftButtons.setAlignment(Pos.CENTER_LEFT);
 
         HBox leftBox = new HBox(16, titleLabel, leftButtons);
@@ -101,12 +103,13 @@ public class TopBarView extends BorderPane {
     }
 
     public void setTexts(String title, String blackStatus, String whiteStatus, String blackTimer, String whiteTimer,
-                         String newMatch, String undo, String settings) {
+                         String back, String newMatch, String undo, String settings) {
         titleLabel.setText(title);
         blackStatusLabel.setText(blackStatus);
         whiteStatusLabel.setText(whiteStatus);
         applyTimerText(blackTimerDisplay, blackTimer);
         applyTimerText(whiteTimerDisplay, whiteTimer);
+        backButton.setText(back);
         newMatchButton.setText(newMatch);
         undoButton.setText(undo);
         settingsButton.setText(settings);
@@ -165,6 +168,7 @@ public class TopBarView extends BorderPane {
                 -fx-text-fill: %s;
                 """.formatted(buttonBg, buttonBorder, primaryText);
 
+        backButton.setStyle(buttonStyle);
         newMatchButton.setStyle(buttonStyle);
         undoButton.setStyle(buttonStyle);
         settingsButton.setStyle(buttonStyle);
@@ -175,6 +179,10 @@ public class TopBarView extends BorderPane {
     public void setStatusOffset(double offset) {
         this.statusOffset = offset;
         statusPill.setTranslateX(statusOffset);
+    }
+
+    public double getStatusOffset() {
+        return statusOffset;
     }
 
     public double getDividerCenterXInScene() {
@@ -261,6 +269,10 @@ public class TopBarView extends BorderPane {
 
     public Button getNewMatchButton() {
         return newMatchButton;
+    }
+
+    public Button getBackButton() {
+        return backButton;
     }
 
     public Button getUndoButton() {

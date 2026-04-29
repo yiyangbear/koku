@@ -4,30 +4,22 @@ import com.example.koku.domain.engine.GameEngine;
 
 import java.util.Optional;
 
-public class GomokuEngine implements GameEngine {
+public class TicTacToeEngine implements GameEngine {
+    private static final int BOARD_SIZE = 3;
+
     private final Board board;
     private final MoveHistory moveHistory;
-    private final WinChecker winChecker;
-    private final ForbiddenMoveChecker forbiddenMoveChecker;
-    private final boolean forbiddenMovesEnabled;
 
     private Player currentPlayer;
     private GameResult result;
     private String latestMessage;
 
-    public GomokuEngine(int boardSize, boolean forbiddenMovesEnabled) {
-        this.board = new Board(boardSize);
+    public TicTacToeEngine() {
+        this.board = new Board(BOARD_SIZE);
         this.moveHistory = new MoveHistory();
-        this.winChecker = new WinChecker();
-        this.forbiddenMoveChecker = new ForbiddenMoveChecker();
-        this.forbiddenMovesEnabled = forbiddenMovesEnabled;
         this.currentPlayer = Player.BLACK;
         this.result = GameResult.inProgress();
         this.latestMessage = "";
-    }
-
-    public Board getBoard() {
-        return board;
     }
 
     @Override
@@ -35,10 +27,12 @@ public class GomokuEngine implements GameEngine {
         return board.getSize();
     }
 
+    @Override
     public Player getCurrentPlayer() {
         return currentPlayer;
     }
 
+    @Override
     public GameResult getResult() {
         return result;
     }
@@ -48,10 +42,12 @@ public class GomokuEngine implements GameEngine {
         return result.status();
     }
 
+    @Override
     public String getLatestMessage() {
         return latestMessage;
     }
 
+    @Override
     public Optional<Move> getLastMove() {
         return moveHistory.peek();
     }
@@ -61,47 +57,37 @@ public class GomokuEngine implements GameEngine {
         return board.getStone(position);
     }
 
+    @Override
     public boolean isGameOver() {
         return result.isGameOver();
     }
 
+    @Override
     public boolean makeMove(Position position) {
         if (position == null) {
             latestMessage = "Position is null.";
             return false;
         }
-
         if (isGameOver()) {
             latestMessage = "Game is already over.";
             return false;
         }
-
         if (!board.isInside(position)) {
             latestMessage = "Position out of board.";
             return false;
         }
-
         if (!board.isEmpty(position)) {
             latestMessage = "Position occupied.";
             return false;
         }
 
         board.placeStone(currentPlayer, position);
-        Move move = new Move(currentPlayer, position);
-        moveHistory.push(move);
+        moveHistory.push(new Move(currentPlayer, position));
 
-        if (forbiddenMovesEnabled && currentPlayer == Player.BLACK) {
-            if (forbiddenMoveChecker.isForbidden(board, position)) {
-                result = GameResult.whiteWin("forbidden");
-                latestMessage = "Forbidden move.";
-                return true;
-            }
-        }
-
-        if (winChecker.hasFiveInARow(board, position)) {
+        if (hasThreeInARow(position)) {
             result = currentPlayer == Player.BLACK
-                    ? GameResult.blackWin("five")
-                    : GameResult.whiteWin("five");
+                    ? GameResult.blackWin("three")
+                    : GameResult.whiteWin("three");
             latestMessage = "Game over.";
             return true;
         }
@@ -117,6 +103,7 @@ public class GomokuEngine implements GameEngine {
         return true;
     }
 
+    @Override
     public boolean undo() {
         Optional<Move> lastMove = moveHistory.pop();
         if (lastMove.isEmpty()) {
@@ -132,6 +119,7 @@ public class GomokuEngine implements GameEngine {
         return true;
     }
 
+    @Override
     public void reset() {
         board.clear();
         moveHistory.clear();
@@ -140,6 +128,7 @@ public class GomokuEngine implements GameEngine {
         latestMessage = "New match started.";
     }
 
+    @Override
     public void forceTimeoutLoss(Player loser) {
         if (loser == Player.BLACK) {
             result = GameResult.whiteWin("timeout.black");
@@ -147,5 +136,22 @@ public class GomokuEngine implements GameEngine {
             result = GameResult.blackWin("timeout.white");
         }
         latestMessage = "Timeout.";
+    }
+
+    private boolean hasThreeInARow(Position position) {
+        Player player = board.getStone(position);
+        int row = position.row();
+        int col = position.col();
+
+        return hasLine(player, new Position(row, 0), new Position(row, 1), new Position(row, 2))
+                || hasLine(player, new Position(0, col), new Position(1, col), new Position(2, col))
+                || hasLine(player, new Position(0, 0), new Position(1, 1), new Position(2, 2))
+                || hasLine(player, new Position(0, 2), new Position(1, 1), new Position(2, 0));
+    }
+
+    private boolean hasLine(Player player, Position a, Position b, Position c) {
+        return board.getStone(a) == player
+                && board.getStone(b) == player
+                && board.getStone(c) == player;
     }
 }

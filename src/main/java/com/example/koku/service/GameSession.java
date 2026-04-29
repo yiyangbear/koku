@@ -6,7 +6,8 @@ import com.example.koku.config.TimerOption;
 import com.example.koku.config.TotalTimerOption;
 import com.example.koku.domain.GameResult;
 import com.example.koku.domain.GameStatus;
-import com.example.koku.domain.GomokuEngine;
+import com.example.koku.domain.engine.GameEngine;
+import com.example.koku.game.EngineFactory;
 import com.example.koku.domain.Move;
 import com.example.koku.domain.Player;
 import com.example.koku.domain.Position;
@@ -14,13 +15,15 @@ import com.example.koku.domain.Position;
 import java.util.Optional;
 
 public class GameSession {
-    private GomokuEngine engine;
+    private GameEngine engine;
     private RuleConfig ruleConfig;
     private final TimerService timerService;
+    private final EngineFactory engineFactory;
 
-    public GameSession(RuleConfig ruleConfig) {
+    public GameSession(RuleConfig ruleConfig, EngineFactory engineFactory) {
         this.ruleConfig = ruleConfig;
-        this.engine = new GomokuEngine(ruleConfig.boardSizeOption().size(), ruleConfig.forbiddenMovesEnabled());
+        this.engineFactory = engineFactory;
+        this.engine = engineFactory.create(ruleConfig);
         this.timerService = new TimerService();
         this.timerService.configure(
                 ruleConfig.timerMode(),
@@ -32,7 +35,7 @@ public class GameSession {
 
     public void applyRuleConfigAndNewMatch(RuleConfig ruleConfig) {
         this.ruleConfig = ruleConfig;
-        this.engine = new GomokuEngine(ruleConfig.boardSizeOption().size(), ruleConfig.forbiddenMovesEnabled());
+        this.engine = engineFactory.create(ruleConfig);
         this.timerService.configure(
                 ruleConfig.timerMode(),
                 resolvePerMoveSeconds(ruleConfig),
@@ -46,7 +49,7 @@ public class GameSession {
     }
 
     public int getBoardSize() {
-        return engine.getBoard().getSize();
+        return engine.getBoardSize();
     }
 
     public Player getCurrentPlayer() {
@@ -86,7 +89,7 @@ public class GameSession {
     }
 
     public void newMatch() {
-        this.engine = new GomokuEngine(ruleConfig.boardSizeOption().size(), ruleConfig.forbiddenMovesEnabled());
+        this.engine = engineFactory.create(ruleConfig);
         this.timerService.configure(
                 ruleConfig.timerMode(),
                 resolvePerMoveSeconds(ruleConfig),
@@ -153,7 +156,7 @@ public class GameSession {
     }
 
     public Player getStoneAt(int row, int col) {
-        return engine.getBoard().getStone(new Position(row, col));
+        return engine.getStoneAt(new Position(row, col));
     }
 
     public boolean isGameOver() {
@@ -198,7 +201,7 @@ public class GameSession {
     }
 
     public String boardSizeLabel() {
-        int size = ruleConfig.boardSizeOption().size();
+        int size = engine.getBoardSize();
         return size + "x" + size;
     }
 }

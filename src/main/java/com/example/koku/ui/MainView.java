@@ -5,10 +5,13 @@ import com.example.koku.config.LanguageMode;
 import com.example.koku.config.RuleConfig;
 import com.example.koku.domain.GameStatus;
 import com.example.koku.domain.Player;
+import com.example.koku.game.GameDefinition;
+import com.example.koku.game.GameRegistry;
 import com.example.koku.service.GameSession;
 import com.example.koku.service.I18nService;
 import com.example.koku.service.SettingsService;
 import com.example.koku.service.ThemeService;
+import com.example.koku.ui.boards.GameBoardView;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
@@ -28,13 +31,14 @@ public class MainView extends BorderPane {
     private final ThemeService themeService;
     private final I18nService i18nService;
     private final String fontFamily;
+    private final Runnable onBack;
 
     private GameSession session;
 
     private final BorderPane mainShell;
     private final TopBarView topBarView;
     private final BottomStatusView bottomStatusView;
-    private final BoardCanvas boardCanvas;
+    private final GameBoardView boardView;
     private final SettingsPanel settingsPanel;
     private StackPane boardWrap;
 
@@ -46,17 +50,26 @@ public class MainView extends BorderPane {
     private boolean gameOverDialogShown;
 
     public MainView() {
+        this(GameRegistry.gomoku(), null);
+    }
+
+    public MainView(GameDefinition gameDefinition) {
+        this(gameDefinition, null);
+    }
+
+    public MainView(GameDefinition gameDefinition, Runnable onBack) {
         this.settingsService = new SettingsService();
         this.themeService = new ThemeService();
         this.i18nService = new I18nService(settingsService.getSettings().getLanguageMode());
+        this.onBack = onBack;
 
         AppSettings settings = settingsService.getSettings();
         this.fontFamily = loadFontFamily();
-        this.session = new GameSession(settings.getCurrentRuleConfig());
+        this.session = new GameSession(settings.getCurrentRuleConfig(), gameDefinition.engineFactory());
 
         this.topBarView = new TopBarView();
         this.bottomStatusView = new BottomStatusView();
-        this.boardCanvas = new BoardCanvas(session);
+        this.boardView = gameDefinition.boardViewFactory().create(session);
         this.settingsPanel = new SettingsPanel();
 
         this.mainShell = new BorderPane();
@@ -80,7 +93,7 @@ public class MainView extends BorderPane {
         centerColumn.setAlignment(Pos.CENTER);
         centerColumn.setPadding(new Insets(18, 26, 18, 26));
 
-        boardWrap = new StackPane(boardCanvas);
+        boardWrap = new StackPane(boardView.getNode());
         boardWrap.setAlignment(Pos.CENTER);
         boardWrap.setPadding(new Insets(24));
         centerColumn.getChildren().add(boardWrap);
@@ -129,10 +142,16 @@ public class MainView extends BorderPane {
         if (Double.isNaN(dividerCenterX)) {
             return;
         }
-        topBarView.setStatusOffset(boardCenterX - dividerCenterX);
+        topBarView.setStatusOffset(topBarView.getStatusOffset() + boardCenterX - dividerCenterX);
     }
 
     private void bindActions() {
+        topBarView.getBackButton().setOnAction(event -> {
+            if (onBack != null) {
+                onBack.run();
+            }
+        });
+
         topBarView.getNewMatchButton().setOnAction(event -> {
             if (settingsService.getSettings().hasPendingRuleChanges()) {
                 settingsService.applyPendingRules();
@@ -205,7 +224,7 @@ public class MainView extends BorderPane {
             refreshBoardAndTexts();
         });
 
-        boardCanvas.setOnBoardChanged(() -> {
+        boardView.setOnBoardChanged(() -> {
             refreshBoardAndTexts();
             maybeShowResultDialog();
         });
@@ -216,7 +235,7 @@ public class MainView extends BorderPane {
         refreshTextsOnly();
 
         if (timedOut) {
-            boardCanvas.draw();
+            boardView.draw();
             maybeShowResultDialog();
         }
     }
@@ -246,6 +265,7 @@ public class MainView extends BorderPane {
 
         panelAnimation.setOnFinished(event -> {
             panelHost.setMouseTransparent(mouseTransparentOnFinish);
+            scheduleTopBarAlignment();
         });
 
         panelAnimation.play();
@@ -264,7 +284,7 @@ public class MainView extends BorderPane {
 
     private void refreshAll() {
         refreshAppearanceAndTexts();
-        boardCanvas.draw();
+        boardView.draw();
     }
 
     private void refreshAppearanceAndTexts() {
@@ -273,7 +293,7 @@ public class MainView extends BorderPane {
 
         applyShellTheme(palette);
         applyTexts();
-        boardCanvas.configure(
+        boardView.configure(
                 palette,
                 settings.isShowCoordinates(),
                 settings.isShowLastMoveMarker(),
@@ -287,7 +307,7 @@ public class MainView extends BorderPane {
         ThemeService.Palette palette = themeService.getPalette(settings.getThemeMode() == com.example.koku.config.ThemeMode.DARK);
 
         applyTexts();
-        boardCanvas.configure(
+        boardView.configure(
                 palette,
                 settings.isShowCoordinates(),
                 settings.isShowLastMoveMarker(),
@@ -355,6 +375,7 @@ public class MainView extends BorderPane {
                 buildWhiteStatusText(),
                 buildTimerText(Player.BLACK),
                 buildTimerText(Player.WHITE),
+                i18nService.text("button.back"),
                 i18nService.text("button.newMatch"),
                 i18nService.text("button.undo"),
                 i18nService.text("button.settings")

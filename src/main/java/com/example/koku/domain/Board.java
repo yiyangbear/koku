@@ -8,8 +8,8 @@ public class Board {
     private int moveCount;
 
     public Board(int size) {
-        if (size < 5) {
-            throw new IllegalArgumentException("Board size must be at least 5.");
+        if (size < 3) {
+            throw new IllegalArgumentException("Board size must be at least 3.");
         }
         this.size = size;
         this.grid = new Player[size][size];
