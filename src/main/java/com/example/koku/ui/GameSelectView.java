@@ -33,12 +33,12 @@ public class GameSelectView extends BorderPane {
 
         titleLabel = new Label();
         subtitleLabel = new Label();
-        gamesBox = new VBox(12);
+        gamesBox = new VBox(14);
         gamesBox.setAlignment(Pos.CENTER);
 
-        VBox center = new VBox(18, titleLabel, subtitleLabel, gamesBox);
+        VBox center = new VBox(20, titleLabel, subtitleLabel, gamesBox);
         center.setAlignment(Pos.CENTER);
-        center.setPadding(new Insets(32));
+        center.setPadding(new Insets(36));
 
         setCenter(center);
 
@@ -60,13 +60,13 @@ public class GameSelectView extends BorderPane {
 
         titleLabel.setStyle("""
                 -fx-text-fill: %s;
-                -fx-font-size: 22px;
+                -fx-font-size: 26px;
                 -fx-font-weight: 600;
                 """.formatted(palette.primaryText()));
 
         subtitleLabel.setStyle("""
                 -fx-text-fill: %s;
-                -fx-font-size: 13px;
+                -fx-font-size: 15px;
                 """.formatted(palette.secondaryText()));
     }
 
@@ -82,13 +82,13 @@ public class GameSelectView extends BorderPane {
 
             title.setStyle("""
                 -fx-text-fill: %s;
-                -fx-font-size: 18px;
+                -fx-font-size: 20px;
                 -fx-font-weight: 600;
                 """.formatted(palette.primaryText()));
 
             description.setStyle("""
                 -fx-text-fill: %s;
-                -fx-font-size: 13px;
+                -fx-font-size: 15px;
                 """.formatted(palette.secondaryText()));
 
             play.setStyle("""
@@ -98,16 +98,17 @@ public class GameSelectView extends BorderPane {
                 -fx-background-radius: 12;
                 -fx-text-fill: %s;
                 -fx-font-weight: 600;
-                -fx-font-size: 14px;
-                -fx-pref-height: 40;
-                -fx-padding: 0 16 0 16;
+                -fx-font-size: 15px;
+                -fx-pref-height: 42;
+                -fx-padding: 0 18 0 18;
                 """.formatted(palette.buttonBg(), palette.buttonBorder(), palette.primaryText()));
 
             VBox card = new VBox(10, title, description, play);
             card.setAlignment(Pos.CENTER_LEFT);
-            card.setPadding(new Insets(18));
-            card.setMinWidth(360);
-            card.setMaxWidth(420);
+            card.setPadding(new Insets(20));
+            card.setMinWidth(300);
+            card.setPrefWidth(420);
+            card.setMaxWidth(520);
             card.setStyle("""
                 -fx-background-color: %s;
                 -fx-border-color: %s;

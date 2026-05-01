@@ -19,11 +19,7 @@ import javafx.util.Duration;
 import java.util.Optional;
 
 public class ConnectFourBoardView extends Canvas implements GameBoardView {
-    private static final double CANVAS_WIDTH = 780;
-    private static final double CANVAS_HEIGHT = 720;
-    private static final double BOARD_WIDTH = 560;
-    private static final double BOARD_HEIGHT = 480;
-    private static final double BOARD_PADDING = 44;
+    private static final double INITIAL_CANVAS_SIZE = 720;
 
     private final GameSession session;
 
@@ -39,8 +35,10 @@ public class ConnectFourBoardView extends Canvas implements GameBoardView {
     private FallingStone fallingStone;
 
     public ConnectFourBoardView(GameSession session) {
-        super(CANVAS_WIDTH, CANVAS_HEIGHT);
+        super(INITIAL_CANVAS_SIZE, INITIAL_CANVAS_SIZE);
         this.session = session;
+        widthProperty().addListener((obs, oldVal, newVal) -> draw());
+        heightProperty().addListener((obs, oldVal, newVal) -> draw());
         setOnMouseMoved(this::handleMouseMoved);
         setOnMouseExited(event -> {
             hoverColumn = null;
@@ -76,7 +74,7 @@ public class ConnectFourBoardView extends Canvas implements GameBoardView {
         double boardY = getBoardY();
 
         gc.setFill(Color.web(palette.boardBg()));
-        gc.fillRoundRect(boardX, boardY, BOARD_WIDTH, BOARD_HEIGHT, 28, 28);
+        gc.fillRoundRect(boardX, boardY, getBoardWidth(), getBoardHeight(), getCornerRadius(), getCornerRadius());
 
         drawGrid(gc);
         if (showCoordinates) {
@@ -101,7 +99,7 @@ public class ConnectFourBoardView extends Canvas implements GameBoardView {
 
     private void drawGrid(GraphicsContext gc) {
         gc.setStroke(Color.web(palette.boardLine()));
-        gc.setLineWidth(1.2);
+        gc.setLineWidth(Math.max(0.9, getBoardWidth() / 540.0));
 
         for (int col = 0; col < session.getBoardCols(); col++) {
             double x = getGridStartX() + col * getCellWidth();
@@ -290,27 +288,55 @@ public class ConnectFourBoardView extends Canvas implements GameBoardView {
     }
 
     private double getBoardX() {
-        return (CANVAS_WIDTH - BOARD_WIDTH) / 2.0;
+        return (getWidth() - getBoardWidth()) / 2.0;
     }
 
     private double getBoardY() {
-        return (CANVAS_HEIGHT - BOARD_HEIGHT) / 2.0;
+        return (getHeight() - getBoardHeight()) / 2.0;
     }
 
     private double getGridStartX() {
-        return getBoardX() + BOARD_PADDING;
+        return getBoardX() + getBoardPadding();
     }
 
     private double getGridStartY() {
-        return getBoardY() + BOARD_PADDING;
+        return getBoardY() + getBoardPadding();
     }
 
     private double getCellWidth() {
-        return (BOARD_WIDTH - BOARD_PADDING * 2) / (session.getBoardCols() - 1);
+        return getCellSize();
     }
 
     private double getCellHeight() {
-        return (BOARD_HEIGHT - BOARD_PADDING * 2) / (session.getBoardRows() - 1);
+        return getCellSize();
+    }
+
+    private double getCanvasSize() {
+        return Math.max(260, Math.min(getWidth(), getHeight()));
+    }
+
+    private double getCellSize() {
+        double canvasSize = getCanvasSize();
+        return Math.min(
+                canvasSize * 0.74 / (session.getBoardCols() - 1),
+                canvasSize * 0.64 / (session.getBoardRows() - 1)
+        );
+    }
+
+    private double getBoardPadding() {
+        return Math.max(26, getCellSize() * 0.62);
+    }
+
+    private double getBoardWidth() {
+        return getCellSize() * (session.getBoardCols() - 1) + getBoardPadding() * 2;
+    }
+
+    private double getBoardHeight() {
+        return getCellSize() * (session.getBoardRows() - 1) + getBoardPadding() * 2;
+    }
+
+    private double getCornerRadius() {
+        return Math.max(18, Math.min(28, getBoardWidth() * 0.05));
     }
 
     private void notifyBoardChanged() {

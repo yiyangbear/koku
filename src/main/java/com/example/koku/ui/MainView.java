@@ -20,7 +20,12 @@ import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -38,10 +43,18 @@ public class MainView extends BorderPane {
     private GameSession session;
 
     private final BorderPane mainShell;
+    private final StackPane contentStack;
     private final TopBarView topBarView;
     private final BottomStatusView bottomStatusView;
     private final GameBoardView boardView;
     private final SettingsPanel settingsPanel;
+    private final ScrollPane settingsScrollPane;
+    private final StackPane resultOverlay;
+    private final VBox resultCard;
+    private final Label resultTitleLabel;
+    private final Label resultMessageLabel;
+    private final Button resultReturnButton;
+    private final Button resultNewMatchButton;
     private StackPane boardWrap;
 
     private final StackPane panelHost;
@@ -75,13 +88,22 @@ public class MainView extends BorderPane {
         this.bottomStatusView = new BottomStatusView();
         this.boardView = gameDefinition.boardViewFactory().create(session);
         this.settingsPanel = new SettingsPanel();
+        this.settingsScrollPane = new ScrollPane(settingsPanel);
         this.settingsPanel.configureCapabilities(
                 gameDefinition.supportsBoardSize(),
-                gameDefinition.supportsForbiddenMoves()
+                gameDefinition.supportsForbiddenMoves(),
+                supportsCoordinates()
         );
 
         this.mainShell = new BorderPane();
-        this.panelHost = new StackPane(settingsPanel);
+        this.contentStack = new StackPane();
+        this.resultTitleLabel = new Label();
+        this.resultMessageLabel = new Label();
+        this.resultReturnButton = new Button();
+        this.resultNewMatchButton = new Button();
+        this.resultCard = new VBox();
+        this.resultOverlay = new StackPane(resultCard);
+        this.panelHost = new StackPane(settingsScrollPane);
         this.panelVisible = false;
         this.gameOverDialogShown = false;
         this.gameOverDialogScheduled = false;
@@ -94,17 +116,21 @@ public class MainView extends BorderPane {
         this.uiTicker.setCycleCount(Timeline.INDEFINITE);
         this.uiTicker.play();
 
-        bindAlignment();
+        bindResponsiveLayout();
     }
 
     private void buildLayout() {
         VBox centerColumn = new VBox();
         centerColumn.setAlignment(Pos.CENTER);
         centerColumn.setPadding(new Insets(18, 26, 18, 26));
+        centerColumn.setFillWidth(true);
 
         boardWrap = new StackPane(boardView.getNode());
         boardWrap.setAlignment(Pos.CENTER);
         boardWrap.setPadding(new Insets(24));
+        boardWrap.setMinSize(320, 320);
+        boardWrap.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        VBox.setVgrow(boardWrap, Priority.ALWAYS);
         centerColumn.getChildren().add(boardWrap);
 
         mainShell.setTop(topBarView);
@@ -117,41 +143,95 @@ public class MainView extends BorderPane {
         panelHost.setOpacity(0);
         panelHost.setMouseTransparent(true);
 
-        settingsPanel.setPrefWidth(336);
-        settingsPanel.setMaxWidth(336);
-        settingsPanel.setMinWidth(336);
+        settingsScrollPane.setFitToWidth(true);
+        settingsScrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        settingsScrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        settingsScrollPane.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
 
-        setCenter(mainShell);
+        settingsPanel.setResponsiveWidth(360);
+
+        buildResultOverlay();
+
+        contentStack.getChildren().addAll(mainShell, resultOverlay);
+        setCenter(contentStack);
         setRight(panelHost);
     }
 
-    private void bindAlignment() {
-        widthProperty().addListener((obs, oldVal, newVal) -> scheduleTopBarAlignment());
-        heightProperty().addListener((obs, oldVal, newVal) -> scheduleTopBarAlignment());
-        panelHost.widthProperty().addListener((obs, oldVal, newVal) -> scheduleTopBarAlignment());
+    private void buildResultOverlay() {
+        resultTitleLabel.setText(i18nService.text("status.gameOver"));
+        resultMessageLabel.setText("");
+
+        HBox actions = new HBox(10, resultReturnButton, resultNewMatchButton);
+        actions.setAlignment(Pos.CENTER);
+
+        resultCard.getChildren().setAll(resultTitleLabel, resultMessageLabel, actions);
+        resultCard.setAlignment(Pos.CENTER);
+        resultCard.setPadding(new Insets(20, 28, 20, 28));
+        resultCard.setSpacing(14);
+        resultCard.setMinSize(360, 188);
+        resultCard.setPrefSize(360, 188);
+        resultCard.setMaxSize(360, 188);
+
+        resultOverlay.setAlignment(Pos.CENTER);
+        resultOverlay.setVisible(false);
+        resultOverlay.setMouseTransparent(true);
+        resultOverlay.setPickOnBounds(false);
+    }
+
+    private void bindResponsiveLayout() {
+        widthProperty().addListener((obs, oldVal, newVal) -> updateResponsiveLayout());
+        heightProperty().addListener((obs, oldVal, newVal) -> updateResponsiveLayout());
         if (boardWrap != null) {
-            boardWrap.layoutBoundsProperty().addListener((obs, oldVal, newVal) -> scheduleTopBarAlignment());
+            boardWrap.widthProperty().addListener((obs, oldVal, newVal) -> resizeBoardCanvas());
+            boardWrap.heightProperty().addListener((obs, oldVal, newVal) -> resizeBoardCanvas());
         }
-        topBarView.layoutBoundsProperty().addListener((obs, oldVal, newVal) -> scheduleTopBarAlignment());
-        sceneProperty().addListener((obs, oldVal, newVal) -> scheduleTopBarAlignment());
-        scheduleTopBarAlignment();
+        Platform.runLater(() -> {
+            updateResponsiveLayout();
+            resizeBoardCanvas();
+        });
     }
 
-    private void scheduleTopBarAlignment() {
-        Platform.runLater(this::updateTopBarAlignment);
+    private void updateResponsiveLayout() {
+        double width = getWidth() <= 0 ? 1440 : getWidth();
+        double panelWidth = 360;
+
+        settingsPanel.setResponsiveWidth(panelWidth);
+        panelHost.setMinWidth(panelVisible ? panelWidth : 0);
+        panelHost.setMaxWidth(panelWidth);
+        settingsScrollPane.setPrefWidth(panelWidth);
+        settingsScrollPane.setMinWidth(panelWidth);
+        settingsScrollPane.setMaxWidth(panelWidth);
+        settingsScrollPane.setMaxHeight(Math.max(360, getHeight() - 24));
+
+        topBarView.setCompact(width < 1200, width < 980);
+
+        if (panelVisible) {
+            panelHost.setPrefWidth(panelWidth);
+            panelHost.setOpacity(1.0);
+            panelHost.setMouseTransparent(false);
+        }
+        resizeBoardCanvas();
     }
 
-    private void updateTopBarAlignment() {
-        if (boardWrap == null || boardWrap.getScene() == null || topBarView.getScene() == null) {
+    private double clamp(double min, double value, double max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    private void resizeBoardCanvas() {
+        if (boardWrap == null || boardView == null) {
             return;
         }
-        var boardBounds = boardWrap.localToScene(boardWrap.getBoundsInLocal());
-        double boardCenterX = boardBounds.getMinX() + boardBounds.getWidth() / 2.0;
-        double dividerCenterX = topBarView.getDividerCenterXInScene();
-        if (Double.isNaN(dividerCenterX)) {
+        double availableWidth = boardWrap.getWidth() - boardWrap.getInsets().getLeft() - boardWrap.getInsets().getRight();
+        double availableHeight = boardWrap.getHeight() - boardWrap.getInsets().getTop() - boardWrap.getInsets().getBottom();
+        double size = Math.floor(Math.max(280, Math.min(availableWidth, availableHeight)));
+        if (!Double.isFinite(size) || size <= 0) {
             return;
         }
-        topBarView.setStatusOffset(topBarView.getStatusOffset() + boardCenterX - dividerCenterX);
+        if (boardView.getNode() instanceof javafx.scene.canvas.Canvas canvas) {
+            canvas.setWidth(size);
+            canvas.setHeight(size);
+            boardView.draw();
+        }
     }
 
     private void bindActions() {
@@ -162,15 +242,7 @@ public class MainView extends BorderPane {
         });
 
         topBarView.getNewMatchButton().setOnAction(event -> {
-            if (settingsService.getSettings().hasPendingRuleChanges()) {
-                settingsService.applyPendingRules();
-                session.applyRuleConfigAndNewMatch(settingsService.getSettings().getCurrentRuleConfig());
-            } else {
-                session.newMatch();
-            }
-            gameOverDialogShown = false;
-            gameOverDialogScheduled = false;
-            refreshAll();
+            startNewMatch();
         });
 
         topBarView.getUndoButton().setOnAction(event -> {
@@ -191,6 +263,8 @@ public class MainView extends BorderPane {
 
         settingsPanel.getCloseButton().setOnAction(event -> hideSettingsPanel());
         settingsPanel.getForbiddenInfoButton().setOnAction(event -> showForbiddenRulesDialog());
+        resultReturnButton.setOnAction(event -> hideResultOverlay());
+        resultNewMatchButton.setOnAction(event -> startNewMatch());
 
         settingsPanel.getApplyButton().setOnAction(event -> {
             settingsService.updatePendingRuleConfig(settingsPanel.buildPendingRuleConfig());
@@ -265,12 +339,74 @@ public class MainView extends BorderPane {
 
     private void showSettingsPanel() {
         panelVisible = true;
-        animatePanel(336, 1.0, false);
+        panelHost.setMinWidth(currentPanelWidth());
+        animatePanel(currentPanelWidth(), 1.0, false);
     }
 
     private void hideSettingsPanel() {
         panelVisible = false;
         animatePanel(0, 0.0, true);
+    }
+
+    public void requestNewMatch() {
+        startNewMatch();
+    }
+
+    public void requestUndo() {
+        session.undo();
+        gameOverDialogShown = false;
+        gameOverDialogScheduled = false;
+        refreshAll();
+    }
+
+    public void requestBackToSelect() {
+        if (onBack != null) {
+            onBack.run();
+        }
+    }
+
+    public void requestOpenSettingsPanel() {
+        loadPanelState();
+        showSettingsPanel();
+    }
+
+    public void setShowCoordinatesFromMenu(boolean showCoordinates) {
+        if (!supportsCoordinates()) {
+            return;
+        }
+        settingsService.setShowCoordinates(showCoordinates);
+        refreshBoardAndTexts();
+    }
+
+    public void setShowLastMoveMarkerFromMenu(boolean showLastMoveMarker) {
+        settingsService.setShowLastMoveMarker(showLastMoveMarker);
+        refreshBoardAndTexts();
+    }
+
+    public boolean isShowCoordinatesSelected() {
+        return supportsCoordinates() && settingsService.getSettings().isShowCoordinates();
+    }
+
+    public boolean isShowLastMoveMarkerSelected() {
+        return settingsService.getSettings().isShowLastMoveMarker();
+    }
+
+    public boolean supportsCoordinateMenu() {
+        return supportsCoordinates();
+    }
+
+    public void toggleThemeModeFromMenu() {
+        var next = settingsService.getSettings().getThemeMode() == com.example.koku.config.ThemeMode.DARK
+                ? com.example.koku.config.ThemeMode.LIGHT
+                : com.example.koku.config.ThemeMode.DARK;
+        settingsService.setThemeMode(next);
+        refreshAppearanceAndTexts();
+    }
+
+    public void setLanguageModeFromMenu(LanguageMode languageMode) {
+        settingsService.setLanguageMode(languageMode);
+        i18nService.setLanguageMode(languageMode);
+        refreshAppearanceAndTexts();
     }
 
     private void animatePanel(double targetWidth, double targetOpacity, boolean mouseTransparentOnFinish) {
@@ -288,10 +424,16 @@ public class MainView extends BorderPane {
 
         panelAnimation.setOnFinished(event -> {
             panelHost.setMouseTransparent(mouseTransparentOnFinish);
-            scheduleTopBarAlignment();
+            if (!panelVisible) {
+                panelHost.setMinWidth(0);
+            }
         });
 
         panelAnimation.play();
+    }
+
+    private double currentPanelWidth() {
+        return 360;
     }
 
     private void loadPanelState() {
@@ -318,7 +460,7 @@ public class MainView extends BorderPane {
         applyTexts();
         boardView.configure(
                 palette,
-                settings.isShowCoordinates(),
+                supportsCoordinates() && settings.isShowCoordinates(),
                 settings.isShowLastMoveMarker(),
                 fontFamily
         );
@@ -332,7 +474,7 @@ public class MainView extends BorderPane {
         applyTexts();
         boardView.configure(
                 palette,
-                settings.isShowCoordinates(),
+                supportsCoordinates() && settings.isShowCoordinates(),
                 settings.isShowLastMoveMarker(),
                 fontFamily
         );
@@ -356,6 +498,7 @@ public class MainView extends BorderPane {
         );
 
         bottomStatusView.applyTheme(palette.subtleText());
+        applyResultOverlayTheme(palette);
 
         settingsPanel.applyTheme(
                 palette.panelBg(),
@@ -410,6 +553,7 @@ public class MainView extends BorderPane {
 
         bottomStatusView.setTexts(
                 buildBottomSummary(settings),
+                i18nService.text("app.title"),
                 i18nService.text("status.lastMove") + ": " + session.getLastMoveCoordinate()
         );
 
@@ -430,6 +574,10 @@ public class MainView extends BorderPane {
                 i18nService.text("button.close"),
                 settings.getLanguageMode()
         );
+
+        resultTitleLabel.setText(i18nService.text("status.gameOver"));
+        resultReturnButton.setText(i18nService.text("result.returnToBoard"));
+        resultNewMatchButton.setText(i18nService.text("result.startNewMatch"));
     }
 
     private String buildBlackStatusText() {
@@ -488,7 +636,7 @@ public class MainView extends BorderPane {
 
     private String buildTimerText(Player player) {
         if (!session.isTimerEnabled() || session.isGameOver()) {
-            return "00:00";
+            return "";
         }
         long millis = session.getPlayerRemainingMillis(player);
         int totalSeconds = (int) Math.ceil(millis / 1000.0);
@@ -519,6 +667,10 @@ public class MainView extends BorderPane {
                     + i18nService.text(settings.getCurrentRuleConfig().forbiddenMovesEnabled()
                     ? "settings.forbidden.on" : "settings.forbidden.off");
         };
+    }
+
+    private boolean supportsCoordinates() {
+        return !"ticTacToe".equals(gameDefinition.id());
     }
 
     private String formatTimerLabel(RuleConfig ruleConfig) {
@@ -560,6 +712,55 @@ public class MainView extends BorderPane {
         return String.format("%02d:%02d", minutes, seconds);
     }
 
+    private void startNewMatch() {
+        if (settingsService.getSettings().hasPendingRuleChanges()) {
+            settingsService.applyPendingRules();
+            session.applyRuleConfigAndNewMatch(settingsService.getSettings().getCurrentRuleConfig());
+        } else {
+            session.newMatch();
+        }
+        gameOverDialogShown = false;
+        gameOverDialogScheduled = false;
+        hideResultOverlay();
+        refreshAll();
+    }
+
+    private void applyResultOverlayTheme(ThemeService.Palette palette) {
+        resultCard.setStyle("""
+                -fx-background-color: %sE8;
+                -fx-background-radius: 22;
+                -fx-border-color: %s;
+                -fx-border-radius: 22;
+                -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.34), 28, 0.22, 0, 14);
+                """.formatted(palette.panelBg(), palette.cardBorder()));
+
+        resultTitleLabel.setStyle("""
+                -fx-text-fill: %s;
+                -fx-font-size: 15px;
+                -fx-font-weight: 500;
+                """.formatted(palette.secondaryText()));
+
+        resultMessageLabel.setStyle("""
+                -fx-text-fill: %s;
+                -fx-font-size: 28px;
+                -fx-font-weight: 700;
+                """.formatted(palette.primaryText()));
+
+        String primaryButtonStyle = """
+                -fx-background-color: %s;
+                -fx-border-color: %s;
+                -fx-border-radius: 12;
+                -fx-background-radius: 12;
+                -fx-text-fill: %s;
+                -fx-font-size: 14px;
+                -fx-font-weight: 600;
+                -fx-pref-height: 38;
+                -fx-padding: 0 18 0 18;
+                """.formatted(palette.buttonBg(), palette.buttonBorder(), palette.primaryText());
+        resultReturnButton.setStyle(primaryButtonStyle);
+        resultNewMatchButton.setStyle(primaryButtonStyle);
+    }
+
     private void maybeShowResultDialog() {
         if (!session.isGameOver() || gameOverDialogShown || gameOverDialogScheduled) {
             return;
@@ -573,28 +774,27 @@ public class MainView extends BorderPane {
             }
 
             gameOverDialogShown = true;
-
-            String summary = switch (session.getResult().status()) {
-                case BLACK_WIN -> i18nService.text("result.blackWins");
-                case WHITE_WIN -> i18nService.text("result.whiteWins");
-                case DRAW -> i18nService.text("result.draw");
-                default -> i18nService.text("status.gameOver");
-            };
-
-            String detailKey = session.getResultDetailKey();
-            String content;
-            if (detailKey != null) {
-                content = i18nService.text(detailKey);
-            } else {
-                content = null;
-            }
-
-            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-            alert.setTitle(i18nService.text("status.gameOver"));
-            alert.setHeaderText(summary);
-            alert.setContentText(content);
-            alert.showAndWait();
+            showResultOverlay();
         });
+    }
+
+    private void showResultOverlay() {
+        String message = switch (session.getResult().status()) {
+            case BLACK_WIN -> i18nService.text("result.blackVictory");
+            case WHITE_WIN -> i18nService.text("result.whiteVictory");
+            case DRAW -> i18nService.text("result.drawFinal");
+            default -> i18nService.text("status.gameOver");
+        };
+
+        resultTitleLabel.setText(i18nService.text("status.gameOver"));
+        resultMessageLabel.setText(message);
+        resultOverlay.setVisible(true);
+        resultOverlay.setMouseTransparent(false);
+    }
+
+    private void hideResultOverlay() {
+        resultOverlay.setVisible(false);
+        resultOverlay.setMouseTransparent(true);
     }
 
     private void showForbiddenRulesDialog() {

@@ -17,6 +17,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.util.Callback;
 
@@ -69,8 +70,8 @@ public class SettingsPanel extends VBox {
     private LanguageMode displayLanguageMode = LanguageMode.ZH_CN;
 
     public SettingsPanel() {
-        setSpacing(16);
-        setPadding(new Insets(24));
+        setSpacing(12);
+        setPadding(new Insets(18));
         setPrefWidth(336);
         setMinWidth(336);
         setMaxWidth(336);
@@ -96,7 +97,7 @@ public class SettingsPanel extends VBox {
         perMoveMinutesField = createTimeField();
         perMoveSecondsLabel = new Label("Sec");
         perMoveSecondsField = createTimeField();
-        perMoveCustomRow = new HBox(8, perMoveMinutesLabel, perMoveMinutesField, perMoveSecondsLabel, perMoveSecondsField);
+        perMoveCustomRow = new HBox(4, perMoveMinutesLabel, perMoveMinutesField, perMoveSecondsLabel, perMoveSecondsField);
         perMoveCustomRow.setAlignment(Pos.CENTER_LEFT);
 
         totalEnableCheck = new CheckBox("Total Timer");
@@ -108,7 +109,7 @@ public class SettingsPanel extends VBox {
         totalMinutesField = createTimeField();
         totalSecondsLabel = new Label("Sec");
         totalSecondsField = createTimeField();
-        totalCustomRow = new HBox(8, totalMinutesLabel, totalMinutesField, totalSecondsLabel, totalSecondsField);
+        totalCustomRow = new HBox(4, totalMinutesLabel, totalMinutesField, totalSecondsLabel, totalSecondsField);
         totalCustomRow.setAlignment(Pos.CENTER_LEFT);
 
         appearanceLabel = new Label("Appearance");
@@ -125,38 +126,73 @@ public class SettingsPanel extends VBox {
         applyButton = new Button("Apply & New Match");
         closeButton = new Button("Close");
 
-        forbiddenRow = new HBox(6, forbiddenLabel, forbiddenInfoButton);
+        forbiddenRow = new HBox(6, forbiddenCheck, forbiddenLabel, forbiddenInfoButton);
         forbiddenRow.setAlignment(Pos.CENTER_LEFT);
         boardSizeSection = new VBox(8, boardSizeLabel, boardSizeBox);
-        forbiddenSection = new VBox(8, forbiddenRow, forbiddenCheck);
+        forbiddenSection = new VBox(8, forbiddenRow);
 
-        VBox perMoveSection = new VBox(8, perMoveEnableCheck, timerLabel, timerBox, perMoveCustomRow);
-        VBox totalSection = new VBox(8, totalEnableCheck, totalTimerLabel, totalTimerBox, totalCustomRow);
+        VBox perMoveSection = compactColumn(perMoveEnableCheck, timerLabel, timerBox, perMoveCustomRow);
+        VBox totalSection = compactColumn(totalEnableCheck, totalTimerLabel, totalTimerBox, totalCustomRow);
+        HBox timerRow = pairedRow(perMoveSection, totalSection);
 
-        VBox rulesGroup = createGroup(boardSizeSection, forbiddenSection, perMoveSection, totalSection);
-        VBox appearanceGroup = createGroup(appearanceLabel, themeBox, languageLabel, languageBox);
-        VBox prefGroup = createGroup(coordinatesCheck, lastMoveMarkerCheck);
+        VBox appearanceSection = compactColumn(appearanceLabel, themeBox);
+        VBox languageSection = compactColumn(languageLabel, languageBox);
+        HBox appearanceRow = pairedRow(appearanceSection, languageSection);
 
-        VBox buttonBox = new VBox(10, applyButton, closeButton);
-        buttonBox.setAlignment(Pos.CENTER_LEFT);
+        HBox prefRow = pairedRow(coordinatesCheck, lastMoveMarkerCheck);
 
-        getChildren().addAll(titleLabel, hintLabel, rulesGroup, appearanceGroup, prefGroup, buttonBox);
+        HBox buttonRow = pairedRow(applyButton, closeButton);
+
+        VBox rulesGroup = createGroup(boardSizeSection, forbiddenSection, timerRow);
+        VBox appearanceGroup = createGroup(appearanceRow);
+        VBox prefGroup = createGroup(prefRow);
+        VBox actionGroup = createGroup(buttonRow);
+
+        getChildren().addAll(titleLabel, hintLabel, rulesGroup, appearanceGroup, prefGroup, actionGroup);
 
         bindTimerControls();
         updateTimerSectionState();
     }
 
+    public void setResponsiveWidth(double width) {
+        setPrefWidth(width);
+        setMinWidth(width);
+        setMaxWidth(width);
+    }
+
     private TextField createTimeField() {
         TextField field = new TextField();
-        field.setPrefWidth(44);
+        field.setPrefWidth(36);
         return field;
     }
 
     private VBox createGroup(Node... nodes) {
-        VBox box = new VBox(12);
+        VBox box = new VBox(10);
         box.getChildren().addAll(nodes);
-        box.setPadding(new Insets(16));
+        box.setPadding(new Insets(12));
         return box;
+    }
+
+    private VBox compactColumn(Node... nodes) {
+        VBox box = new VBox(6);
+        box.getChildren().addAll(nodes);
+        HBox.setHgrow(box, Priority.ALWAYS);
+        box.setMaxWidth(Double.MAX_VALUE);
+        return box;
+    }
+
+    private HBox pairedRow(Node left, Node right) {
+        HBox row = new HBox(10, left, right);
+        row.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(left, Priority.ALWAYS);
+        HBox.setHgrow(right, Priority.ALWAYS);
+        if (left instanceof javafx.scene.control.Control control) {
+            control.setMaxWidth(Double.MAX_VALUE);
+        }
+        if (right instanceof javafx.scene.control.Control control) {
+            control.setMaxWidth(Double.MAX_VALUE);
+        }
+        return row;
     }
 
     private Button createInfoButton() {
@@ -452,10 +488,19 @@ public class SettingsPanel extends VBox {
     }
 
     public void configureCapabilities(boolean supportsBoardSize, boolean supportsForbiddenMoves) {
+        configureCapabilities(supportsBoardSize, supportsForbiddenMoves, true);
+    }
+
+    public void configureCapabilities(boolean supportsBoardSize, boolean supportsForbiddenMoves, boolean supportsCoordinates) {
         boardSizeSection.setManaged(supportsBoardSize);
         boardSizeSection.setVisible(supportsBoardSize);
         forbiddenSection.setManaged(supportsForbiddenMoves);
         forbiddenSection.setVisible(supportsForbiddenMoves);
+        coordinatesCheck.setManaged(supportsCoordinates);
+        coordinatesCheck.setVisible(supportsCoordinates);
+        if (!supportsCoordinates) {
+            coordinatesCheck.setSelected(false);
+        }
     }
 
     public RuleConfig buildPendingRuleConfig() {

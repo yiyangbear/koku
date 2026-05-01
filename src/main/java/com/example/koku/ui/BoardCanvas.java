@@ -26,14 +26,13 @@ public class BoardCanvas extends Canvas implements GameBoardView {
 
     private Runnable onBoardChanged;
 
-    private static final double CANVAS_SIZE = 780;
-    private static final double PADDING = 56;
-    private static final double SMALL_BOARD_AREA = 360;
-    private static final double SMALL_BOARD_PADDING = 86;
+    private static final double INITIAL_CANVAS_SIZE = 720;
 
     public BoardCanvas(GameSession session) {
-        super(CANVAS_SIZE, CANVAS_SIZE);
+        super(INITIAL_CANVAS_SIZE, INITIAL_CANVAS_SIZE);
         this.session = session;
+        widthProperty().addListener((obs, oldVal, newVal) -> draw());
+        heightProperty().addListener((obs, oldVal, newVal) -> draw());
         setOnMouseMoved(this::handleMouseMoved);
         setOnMouseExited(event -> {
             hoverRow = null;
@@ -73,8 +72,8 @@ public class BoardCanvas extends Canvas implements GameBoardView {
 
         gc.setFill(Color.web(palette.boardBg()));
         double boardArea = getBoardAreaSize();
-        double boardOrigin = getBoardOrigin();
-        gc.fillRoundRect(boardOrigin, boardOrigin, boardArea, boardArea, 28, 28);
+        gc.fillRoundRect(getBoardOriginX(), getBoardOriginY(), boardArea, boardArea,
+                getCornerRadius(), getCornerRadius());
 
         drawGrid(gc);
         drawCenterStar(gc);
@@ -96,13 +95,14 @@ public class BoardCanvas extends Canvas implements GameBoardView {
         double cell = getCellSize();
 
         gc.setStroke(Color.web(palette.boardLine()));
-        gc.setLineWidth(1.0);
+        gc.setLineWidth(Math.max(0.85, getBoardAreaSize() / 720.0));
 
         for (int i = 0; i < size; i++) {
-            double pos = getGridStart() + i * cell;
+            double x = getGridStartX() + i * cell;
+            double y = getGridStartY() + i * cell;
 
-            gc.strokeLine(getGridStart(), pos, getGridStart() + cell * (size - 1), pos);
-            gc.strokeLine(pos, getGridStart(), pos, getGridStart() + cell * (size - 1));
+            gc.strokeLine(getGridStartX(), y, getGridStartX() + cell * (size - 1), y);
+            gc.strokeLine(x, getGridStartY(), x, getGridStartY() + cell * (size - 1));
         }
     }
 
@@ -114,11 +114,12 @@ public class BoardCanvas extends Canvas implements GameBoardView {
 
         double cell = getCellSize();
         int center = size / 2;
-        double x = getGridStart() + center * cell;
-        double y = getGridStart() + center * cell;
+        double x = getGridStartX() + center * cell;
+        double y = getGridStartY() + center * cell;
+        double radius = Math.max(3, Math.min(4.5, cell * 0.11));
 
         gc.setFill(Color.web(palette.boardLine()));
-        gc.fillOval(x - 4, y - 4, 8, 8);
+        gc.fillOval(x - radius, y - radius, radius * 2, radius * 2);
     }
 
     private void drawCoordinates(GraphicsContext gc) {
@@ -136,12 +137,13 @@ public class BoardCanvas extends Canvas implements GameBoardView {
             String colText = String.valueOf((char) ('A' + i));
             String rowText = String.valueOf(i + 1);
 
-            double pos = getGridStart() + i * cell;
-            gc.fillText(colText, pos - 4, getGridStart() - 18);
-            gc.fillText(colText, pos - 4, getGridStart() + cell * (size - 1) + 24);
+            double x = getGridStartX() + i * cell;
+            double y = getGridStartY() + i * cell;
+            gc.fillText(colText, x - 4, getGridStartY() - Math.max(14, cell * 0.35));
+            gc.fillText(colText, x - 4, getGridStartY() + cell * (size - 1) + Math.max(18, cell * 0.45));
 
-            gc.fillText(rowText, getGridStart() - 26, pos + 4);
-            gc.fillText(rowText, getGridStart() + cell * (size - 1) + 12, pos + 4);
+            gc.fillText(rowText, getGridStartX() - Math.max(22, cell * 0.55), y + 4);
+            gc.fillText(rowText, getGridStartX() + cell * (size - 1) + Math.max(10, cell * 0.25), y + 4);
         }
     }
 
@@ -157,8 +159,8 @@ public class BoardCanvas extends Canvas implements GameBoardView {
                     continue;
                 }
 
-                double centerX = getGridStart() + col * cell;
-                double centerY = getGridStart() + row * cell;
+                double centerX = getGridStartX() + col * cell;
+                double centerY = getGridStartY() + row * cell;
                 double x = centerX - stoneSize / 2.0;
                 double y = centerY - stoneSize / 2.0;
 
@@ -193,8 +195,8 @@ public class BoardCanvas extends Canvas implements GameBoardView {
 
         double cell = getCellSize();
         double stoneSize = cell * 0.78;
-        double centerX = getGridStart() + hoverCol * cell;
-        double centerY = getGridStart() + hoverRow * cell;
+        double centerX = getGridStartX() + hoverCol * cell;
+        double centerY = getGridStartY() + hoverRow * cell;
         double x = centerX - stoneSize / 2.0;
         double y = centerY - stoneSize / 2.0;
 
@@ -222,19 +224,20 @@ public class BoardCanvas extends Canvas implements GameBoardView {
         }
 
         double cell = getCellSize();
-        double centerX = getGridStart() + lastMove.get().position().col() * cell;
-        double centerY = getGridStart() + lastMove.get().position().row() * cell;
+        double centerX = getGridStartX() + lastMove.get().position().col() * cell;
+        double centerY = getGridStartY() + lastMove.get().position().row() * cell;
+        double markerRadius = Math.max(3, Math.min(4, cell * 0.1));
 
         gc.setFill(Color.web(palette.accent()));
-        gc.fillOval(centerX - 4, centerY - 4, 8, 8);
+        gc.fillOval(centerX - markerRadius, centerY - markerRadius, markerRadius * 2, markerRadius * 2);
     }
 
     private void handleMouseMoved(MouseEvent event) {
         int size = session.getBoardSize();
         double cell = getCellSize();
 
-        int col = (int) Math.round((event.getX() - getGridStart()) / cell);
-        int row = (int) Math.round((event.getY() - getGridStart()) / cell);
+        int col = (int) Math.round((event.getX() - getGridStartX()) / cell);
+        int row = (int) Math.round((event.getY() - getGridStartY()) / cell);
 
         if (row < 0 || row >= size || col < 0 || col >= size) {
             if (hoverRow != null || hoverCol != null) {
@@ -261,8 +264,8 @@ public class BoardCanvas extends Canvas implements GameBoardView {
         int size = session.getBoardSize();
         double cell = getCellSize();
 
-        int col = (int) Math.round((event.getX() - getGridStart()) / cell);
-        int row = (int) Math.round((event.getY() - getGridStart()) / cell);
+        int col = (int) Math.round((event.getX() - getGridStartX()) / cell);
+        int row = (int) Math.round((event.getY() - getGridStartY()) / cell);
 
         if (row < 0 || row >= size || col < 0 || col >= size) {
             notifyBoardChanged();
@@ -280,19 +283,35 @@ public class BoardCanvas extends Canvas implements GameBoardView {
     }
 
     private double getBoardAreaSize() {
-        return session.getBoardSize() == 3 ? SMALL_BOARD_AREA : CANVAS_SIZE;
+        double canvasSize = Math.max(260, Math.min(getWidth(), getHeight()));
+        return session.getBoardSize() == 3 ? canvasSize * 0.62 : canvasSize;
     }
 
     private double getBoardPadding() {
-        return session.getBoardSize() == 3 ? SMALL_BOARD_PADDING : PADDING;
+        double boardArea = getBoardAreaSize();
+        return session.getBoardSize() == 3
+                ? Math.max(54, boardArea * 0.24)
+                : Math.max(24, boardArea * 0.072);
     }
 
-    private double getBoardOrigin() {
-        return (CANVAS_SIZE - getBoardAreaSize()) / 2.0;
+    private double getBoardOriginX() {
+        return (getWidth() - getBoardAreaSize()) / 2.0;
     }
 
-    private double getGridStart() {
-        return getBoardOrigin() + getBoardPadding();
+    private double getBoardOriginY() {
+        return (getHeight() - getBoardAreaSize()) / 2.0;
+    }
+
+    private double getGridStartX() {
+        return getBoardOriginX() + getBoardPadding();
+    }
+
+    private double getGridStartY() {
+        return getBoardOriginY() + getBoardPadding();
+    }
+
+    private double getCornerRadius() {
+        return Math.max(18, Math.min(28, getBoardAreaSize() * 0.04));
     }
 
     private void notifyBoardChanged() {

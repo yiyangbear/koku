@@ -1,6 +1,5 @@
 package com.example.koku.ui;
 
-import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -32,7 +31,11 @@ public class TopBarView extends BorderPane {
     private String statusBaseStyle;
     private String statusEmphasisStyle;
     private String timerBaseStyle;
-    private double statusOffset;
+    private HBox leftButtons;
+    private HBox leftBox;
+    private HBox rightBox;
+    private VBox centerBox;
+    private HBox statusRow;
 
     public TopBarView() {
         titleLabel = new Label("Koku / 观子");
@@ -55,7 +58,7 @@ public class TopBarView extends BorderPane {
         whiteStatusLabel.setMinWidth(86);
         whiteStatusLabel.setAlignment(Pos.CENTER_LEFT);
 
-        HBox statusRow = new HBox(
+        statusRow = new HBox(
                 10,
                 blackStatusLabel,
                 blackIndicator,
@@ -69,18 +72,36 @@ public class TopBarView extends BorderPane {
 
         statusPill.getChildren().add(statusRow);
         statusPill.setPadding(new Insets(8, 14, 8, 14));
+        statusPill.setMinWidth(220);
+        statusPill.setMaxWidth(420);
+        statusPill.setClip(new javafx.scene.shape.Rectangle());
+        statusPill.layoutBoundsProperty().addListener((obs, oldVal, bounds) -> {
+            if (statusPill.getClip() instanceof javafx.scene.shape.Rectangle clip) {
+                clip.setWidth(bounds.getWidth());
+                clip.setHeight(bounds.getHeight());
+            }
+        });
 
-        VBox centerBox = new VBox(statusPill);
+        centerBox = new VBox(statusPill);
         centerBox.setAlignment(Pos.CENTER);
+        centerBox.setMinWidth(220);
+        centerBox.setMaxWidth(420);
 
-        HBox leftButtons = new HBox(10, backButton, newMatchButton);
+        leftButtons = new HBox(10, backButton, newMatchButton);
         leftButtons.setAlignment(Pos.CENTER_LEFT);
 
-        HBox leftBox = new HBox(16, titleLabel, leftButtons);
+        titleLabel.setVisible(false);
+        titleLabel.setManaged(false);
+
+        leftBox = new HBox(leftButtons);
         leftBox.setAlignment(Pos.CENTER_LEFT);
 
-        HBox rightBox = new HBox(10, undoButton, settingsButton);
+        rightBox = new HBox(10, undoButton, settingsButton);
         rightBox.setAlignment(Pos.CENTER_RIGHT);
+        leftBox.setMinWidth(210);
+        leftBox.setPrefWidth(210);
+        rightBox.setMinWidth(210);
+        rightBox.setPrefWidth(210);
 
         setLeft(leftBox);
         setCenter(centerBox);
@@ -100,6 +121,36 @@ public class TopBarView extends BorderPane {
         button.setMinWidth(92);
         button.setFocusTraversable(false);
         return button;
+    }
+
+    public void setCompact(boolean compact, boolean veryCompact) {
+        double horizontalPadding = veryCompact ? 14 : compact ? 20 : 28;
+        setPadding(new Insets(compact ? 16 : 22, horizontalPadding, compact ? 14 : 18, horizontalPadding));
+
+        BorderPane.setMargin(centerBox, new Insets(0, veryCompact ? 8 : compact ? 16 : 28, 0, veryCompact ? 8 : compact ? 16 : 28));
+        statusPill.setPadding(new Insets(veryCompact ? 6 : 8, veryCompact ? 8 : 14, veryCompact ? 6 : 8, veryCompact ? 8 : 14));
+
+        double buttonMinWidth = veryCompact ? 72 : compact ? 82 : 92;
+        backButton.setMinWidth(buttonMinWidth);
+        newMatchButton.setMinWidth(buttonMinWidth);
+        undoButton.setMinWidth(buttonMinWidth);
+        settingsButton.setMinWidth(buttonMinWidth);
+        leftBox.setMinWidth(veryCompact ? 160 : compact ? 184 : 210);
+        leftBox.setPrefWidth(veryCompact ? 160 : compact ? 184 : 210);
+        rightBox.setMinWidth(veryCompact ? 160 : compact ? 184 : 210);
+        rightBox.setPrefWidth(veryCompact ? 160 : compact ? 184 : 210);
+
+        blackStatusLabel.setMinWidth(veryCompact ? 64 : compact ? 76 : 86);
+        whiteStatusLabel.setMinWidth(veryCompact ? 64 : compact ? 76 : 86);
+        statusRow.setSpacing(veryCompact ? 5 : compact ? 7 : 10);
+        statusPill.setMinWidth(veryCompact ? 300 : compact ? 340 : 380);
+        statusPill.setMaxWidth(veryCompact ? 340 : compact ? 380 : 430);
+        centerBox.setMinWidth(veryCompact ? 300 : compact ? 340 : 380);
+        centerBox.setMaxWidth(veryCompact ? 340 : compact ? 380 : 430);
+
+        leftButtons.setSpacing(veryCompact ? 6 : 10);
+        leftBox.setSpacing(0);
+        rightBox.setSpacing(veryCompact ? 6 : 10);
     }
 
     public void setTexts(String title, String blackStatus, String whiteStatus, String blackTimer, String whiteTimer,
@@ -155,6 +206,8 @@ public class TopBarView extends BorderPane {
 
         timerDivider.setStyle("-fx-background-color: %s;".formatted(cardBorder));
         timerDivider.setPrefWidth(1);
+        timerDivider.setMinWidth(1);
+        timerDivider.setMaxWidth(1);
         timerDivider.setMinHeight(18);
 
         String buttonStyle = """
@@ -174,23 +227,6 @@ public class TopBarView extends BorderPane {
         settingsButton.setStyle(buttonStyle);
 
         applyIndicatorColors();
-    }
-
-    public void setStatusOffset(double offset) {
-        this.statusOffset = offset;
-        statusPill.setTranslateX(statusOffset);
-    }
-
-    public double getStatusOffset() {
-        return statusOffset;
-    }
-
-    public double getDividerCenterXInScene() {
-        if (timerDivider.getScene() == null) {
-            return Double.NaN;
-        }
-        Bounds bounds = timerDivider.localToScene(timerDivider.getBoundsInLocal());
-        return bounds.getMinX() + bounds.getWidth() / 2.0;
     }
 
     public void applyStatusEmphasis(boolean emphasizeBlack, boolean emphasizeWhite) {
