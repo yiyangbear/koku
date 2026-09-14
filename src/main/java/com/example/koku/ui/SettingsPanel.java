@@ -1,7 +1,10 @@
 package com.example.koku.ui;
 
+import com.example.koku.ai.BotDifficulty;
 import com.example.koku.config.BoardSizeOption;
+import com.example.koku.config.GameMode;
 import com.example.koku.config.LanguageMode;
+import com.example.koku.config.PlayerOrder;
 import com.example.koku.config.RuleConfig;
 import com.example.koku.config.ThemeMode;
 import com.example.koku.config.TimerMode;
@@ -52,6 +55,13 @@ public class SettingsPanel extends VBox {
     private final TextField totalMinutesField;
     private final Label totalSecondsLabel;
     private final TextField totalSecondsField;
+
+    private final Label gameModeLabel;
+    private final ComboBox<GameMode> gameModeBox;
+    private final Label playerOrderLabel;
+    private final ComboBox<PlayerOrder> playerOrderBox;
+    private final Label botDifficultyLabel;
+    private final ComboBox<BotDifficulty> botDifficultyBox;
 
     private final Label appearanceLabel;
     private final ComboBox<ThemeMode> themeBox;
@@ -112,6 +122,18 @@ public class SettingsPanel extends VBox {
         totalCustomRow = new HBox(4, totalMinutesLabel, totalMinutesField, totalSecondsLabel, totalSecondsField);
         totalCustomRow.setAlignment(Pos.CENTER_LEFT);
 
+        gameModeLabel = new Label("Game Mode");
+        gameModeBox = new ComboBox<>();
+        gameModeBox.getItems().addAll(GameMode.values());
+
+        playerOrderLabel = new Label("Player Order");
+        playerOrderBox = new ComboBox<>();
+        playerOrderBox.getItems().addAll(PlayerOrder.values());
+
+        botDifficultyLabel = new Label("AI Difficulty");
+        botDifficultyBox = new ComboBox<>();
+        botDifficultyBox.getItems().addAll(BotDifficulty.EASY, BotDifficulty.NORMAL, BotDifficulty.HARD);
+
         appearanceLabel = new Label("Appearance");
         themeBox = new ComboBox<>();
         themeBox.getItems().addAll(ThemeMode.values());
@@ -135,6 +157,11 @@ public class SettingsPanel extends VBox {
         VBox totalSection = compactColumn(totalEnableCheck, totalTimerLabel, totalTimerBox, totalCustomRow);
         HBox timerRow = pairedRow(perMoveSection, totalSection);
 
+        VBox gameModeSection = compactColumn(gameModeLabel, gameModeBox);
+        VBox playerOrderSection = compactColumn(playerOrderLabel, playerOrderBox);
+        VBox botDifficultySection = compactColumn(botDifficultyLabel, botDifficultyBox);
+        HBox aiRow = tripleRow(gameModeSection, playerOrderSection, botDifficultySection);
+
         VBox appearanceSection = compactColumn(appearanceLabel, themeBox);
         VBox languageSection = compactColumn(languageLabel, languageBox);
         HBox appearanceRow = pairedRow(appearanceSection, languageSection);
@@ -144,14 +171,17 @@ public class SettingsPanel extends VBox {
         HBox buttonRow = pairedRow(applyButton, closeButton);
 
         VBox rulesGroup = createGroup(boardSizeSection, forbiddenSection, timerRow);
+        VBox aiGroup = createGroup(aiRow);
         VBox appearanceGroup = createGroup(appearanceRow);
         VBox prefGroup = createGroup(prefRow);
         VBox actionGroup = createGroup(buttonRow);
 
-        getChildren().addAll(titleLabel, hintLabel, rulesGroup, appearanceGroup, prefGroup, actionGroup);
+        getChildren().addAll(titleLabel, hintLabel, rulesGroup, aiGroup, appearanceGroup, prefGroup, actionGroup);
 
         bindTimerControls();
+        bindAiControls();
         updateTimerSectionState();
+        updateAiSectionState();
     }
 
     public void setResponsiveWidth(double width) {
@@ -195,6 +225,22 @@ public class SettingsPanel extends VBox {
         return row;
     }
 
+    private HBox tripleRow(Node left, Node middle, Node right) {
+        HBox row = new HBox(10, left, middle, right);
+        row.setAlignment(Pos.CENTER_LEFT);
+        configureRowChild(left);
+        configureRowChild(middle);
+        configureRowChild(right);
+        return row;
+    }
+
+    private void configureRowChild(Node child) {
+        HBox.setHgrow(child, Priority.ALWAYS);
+        if (child instanceof javafx.scene.control.Control control) {
+            control.setMaxWidth(Double.MAX_VALUE);
+        }
+    }
+
     private Button createInfoButton() {
         Button button = new Button("?");
         button.setPrefSize(18, 18);
@@ -220,6 +266,24 @@ public class SettingsPanel extends VBox {
 
         timerBox.setOnAction(event -> updateTimerSectionState());
         totalTimerBox.setOnAction(event -> updateTimerSectionState());
+    }
+
+    private void bindAiControls() {
+        gameModeBox.setOnAction(event -> updateAiSectionState());
+    }
+
+    private void updateAiSectionState() {
+        boolean humanVsComputer = gameModeBox.getValue() == GameMode.HUMAN_VS_COMPUTER;
+        playerOrderLabel.setDisable(!humanVsComputer);
+        playerOrderBox.setDisable(!humanVsComputer);
+        botDifficultyLabel.setDisable(!humanVsComputer);
+        botDifficultyBox.setDisable(!humanVsComputer);
+        if (playerOrderBox.getValue() == null) {
+            playerOrderBox.setValue(PlayerOrder.PLAYER_FIRST);
+        }
+        if (botDifficultyBox.getValue() == null) {
+            botDifficultyBox.setValue(BotDifficulty.EASY);
+        }
     }
 
     private void updateTimerSectionState() {
@@ -293,6 +357,7 @@ public class SettingsPanel extends VBox {
     }
     public void setTexts(String title, String hint, String boardSize, String forbidden, String perMoveTimer,
                          String totalTimer, String minutesLabel, String secondsLabel,
+                         String gameMode, String playerOrder, String aiDifficulty,
                          String appearance, String language, String showCoordinates, String showMarker,
                          String apply, String close, LanguageMode languageMode) {
         this.displayLanguageMode = languageMode;
@@ -309,6 +374,9 @@ public class SettingsPanel extends VBox {
         perMoveSecondsLabel.setText(secondsLabel);
         totalMinutesLabel.setText(minutesLabel);
         totalSecondsLabel.setText(secondsLabel);
+        gameModeLabel.setText(gameMode);
+        playerOrderLabel.setText(playerOrder);
+        botDifficultyLabel.setText(aiDifficulty);
         appearanceLabel.setText(appearance);
         languageLabel.setText(language);
         coordinatesCheck.setText(showCoordinates);
@@ -351,6 +419,9 @@ public class SettingsPanel extends VBox {
         forbiddenLabel.setStyle(labelStyle);
         timerLabel.setStyle(labelStyle);
         totalTimerLabel.setStyle(labelStyle);
+        gameModeLabel.setStyle(labelStyle);
+        playerOrderLabel.setStyle(labelStyle);
+        botDifficultyLabel.setStyle(labelStyle);
         appearanceLabel.setStyle(labelStyle);
         languageLabel.setStyle(labelStyle);
 
@@ -375,6 +446,9 @@ public class SettingsPanel extends VBox {
         boardSizeBox.setStyle(comboStyle);
         timerBox.setStyle(comboStyle);
         totalTimerBox.setStyle(comboStyle);
+        gameModeBox.setStyle(comboStyle);
+        playerOrderBox.setStyle(comboStyle);
+        botDifficultyBox.setStyle(comboStyle);
         themeBox.setStyle(comboStyle);
         languageBox.setStyle(comboStyle);
 
@@ -428,6 +502,9 @@ public class SettingsPanel extends VBox {
         applyRenderer(boardSizeBox, value -> value == null ? "" : value.displayLabel(displayLanguageMode));
         applyRenderer(timerBox, value -> value == null ? "" : value.displayLabel(displayLanguageMode));
         applyRenderer(totalTimerBox, value -> value == null ? "" : value.displayLabel(displayLanguageMode));
+        applyRenderer(gameModeBox, value -> value == null ? "" : value.displayLabel(displayLanguageMode));
+        applyRenderer(playerOrderBox, value -> value == null ? "" : value.displayLabel(displayLanguageMode));
+        applyRenderer(botDifficultyBox, value -> value == null ? "" : value.displayLabel(displayLanguageMode));
         applyRenderer(themeBox, value -> value == null ? "" : value.displayLabel(displayLanguageMode));
         applyRenderer(languageBox, value -> value == null ? "" : value.displayLabel(displayLanguageMode));
     }
@@ -466,6 +543,9 @@ public class SettingsPanel extends VBox {
         forbiddenCheck.setSelected(pendingRuleConfig.forbiddenMovesEnabled());
         timerBox.setValue(pendingRuleConfig.perMoveTimerOption());
         totalTimerBox.setValue(pendingRuleConfig.totalTimerOption());
+        gameModeBox.setValue(pendingRuleConfig.gameMode());
+        playerOrderBox.setValue(pendingRuleConfig.playerOrder());
+        botDifficultyBox.setValue(pendingRuleConfig.botDifficulty());
         themeBox.setValue(themeMode);
         languageBox.setValue(languageMode);
         coordinatesCheck.setSelected(showCoordinates);
@@ -485,6 +565,7 @@ public class SettingsPanel extends VBox {
         loadCustomTime(totalMinutesField, totalSecondsField,
                 pendingRuleConfig.totalCustomMinutes(), pendingRuleConfig.totalCustomSeconds());
         updateTimerSectionState();
+        updateAiSectionState();
     }
 
     public void configureCapabilities(boolean supportsBoardSize, boolean supportsForbiddenMoves) {
@@ -531,7 +612,10 @@ public class SettingsPanel extends VBox {
             totalTimerBox.getValue() == null ? TotalTimerOption.OFF : totalTimerBox.getValue(),
             totalMinutes,
             totalSeconds,
-            timerMode
+            timerMode,
+            gameModeBox.getValue() == null ? GameMode.HUMAN_VS_HUMAN : gameModeBox.getValue(),
+            playerOrderBox.getValue() == null ? PlayerOrder.PLAYER_FIRST : playerOrderBox.getValue(),
+            botDifficultyBox.getValue() == null ? BotDifficulty.EASY : botDifficultyBox.getValue()
         );
     }
 
@@ -567,6 +651,14 @@ public class SettingsPanel extends VBox {
 
     public boolean isTotalTimerEnabled() {
         return totalEnableCheck.isSelected();
+    }
+
+    public GameMode selectedGameMode() {
+        return gameModeBox.getValue() == null ? GameMode.HUMAN_VS_HUMAN : gameModeBox.getValue();
+    }
+
+    public BotDifficulty selectedBotDifficulty() {
+        return botDifficultyBox.getValue() == null ? BotDifficulty.EASY : botDifficultyBox.getValue();
     }
 
     public Button getApplyButton() {

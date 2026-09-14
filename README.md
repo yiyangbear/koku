@@ -5,166 +5,147 @@
 </p>
 
 <p align="center">
-  A minimalist JavaFX desktop board game collection.
+  A cross-platform JavaFX board-game collection with configurable rules and three-level AI opponents.
 </p>
 
 <p align="center">
-  <a href="#english">English</a> ·
-  <a href="#中文">中文</a> ·
-  <a href="https://github.com/yiyangbear/koku/releases">Download</a>
+  <a href="#english">English</a> · <a href="#中文">中文</a> ·
+  <a href="https://github.com/yiyangbear/koku/releases">Releases</a>
+</p>
+
+<p align="center">
+  <img src="docs/images/koku-ai.png" alt="Koku Gomoku game interface" width="900" />
 </p>
 
 ---
 
 ## English
 
-### Overview
+### Project Overview
 
-**Koku** is a JavaFX desktop board game collection featuring multiple classic grid-based strategy games.
+**Koku** is a desktop collection of four grid-based strategy games built with Java and JavaFX. It began as a Gomoku program and was refactored into an extensible platform with shared game sessions, independent rule engines, reusable board views, configurable settings, and AI opponents.
 
-The project started as a Gomoku application and has been refactored into a more extensible game platform. It now supports multiple games through a shared game session, rule engine, settings system, timer service, and JavaFX user interface.
+The project demonstrates object-oriented design, game-state modeling, adversarial search, heuristic evaluation, internationalization, responsive desktop UI design, automated testing, and native application packaging.
 
-Koku is designed as both a playable desktop application and a learning project for Java, JavaFX, game logic design, and software architecture.
+### Key Results
 
----
+- Four playable games in one application
+- Local two-player and human-versus-computer modes
+- Three AI difficulty levels with game-aware strategies
+- Configurable player order, timers, Gomoku board size, and forbidden-move rules
+- Undo, reset, win, draw, forbidden-move, and timeout handling
+- Dark/light themes and Chinese/English interfaces
+- Responsive JavaFX layout for macOS and Windows
+- Native packaging support through `jpackage`
+- Focused JUnit tests for core AI behavior
 
 ### Supported Games
 
-| Game | Description |
+| Game | Board and objective | Game-specific behavior |
+| --- | --- | --- |
+| Tic-Tac-Toe | 3×3, connect three | Complete search is practical on the small state space |
+| Connect Four | 6×7, connect four | Pieces fall to the lowest available cell in a column |
+| Gomoku | Configurable square board, connect five | Optional overline, double-four, and double-three forbidden-move checks |
+| Six-in-a-Row | 19×19, connect six | Black places one opening stone; later turns place two stones |
+
+### AI Opponents
+
+The AI layer exposes a common `Bot` interface. Each bot receives the current engine state and returns a legal move without coupling the search algorithm to JavaFX.
+
+| Difficulty | Strategy | Current implementation |
+| --- | --- | --- |
+| Easy | Random legal move | Enumerates valid cells or valid Connect Four columns |
+| Normal | Heuristic search | Game-specific evaluators, tactical pattern scores, center preference, and nearby-candidate filtering |
+| Hard | Minimax-based search | Full Minimax for Tic-Tac-Toe; depth-limited Minimax with Alpha-Beta pruning for Connect Four; candidate-limited shallow Minimax for Gomoku |
+
+For Gomoku, the candidate generator reduces the large search space by concentrating on cells near existing stones. When forbidden moves are enabled, illegal black moves are filtered before selection. Six-in-a-Row currently uses the heuristic strategy as the Hard-mode fallback because a dedicated multi-stone search model has not yet been implemented.
+
+```mermaid
+flowchart LR
+    UI[JavaFX UI] --> Session[GameSession]
+    Session --> Engine[GameEngine]
+    UI --> Bot[Bot interface]
+    Bot --> Easy[RandomBot]
+    Bot --> Normal[HeuristicBot]
+    Bot --> Hard[MinimaxBot]
+    Normal --> Eval[Game-specific evaluators]
+    Hard --> Eval
+    Bot --> Session
+```
+
+### Gameplay and Desktop Experience
+
+- Select a game from the shared game-selection screen
+- Choose local multiplayer or human-versus-computer mode
+- Choose whether the human or AI moves first
+- Switch AI difficulty between Easy, Normal, and Hard
+- Start a new match or undo the most recent turn
+- Enable per-move or total-game timers
+- Toggle coordinates and the last-move marker
+- Apply settings from a compact side panel
+- Switch language and theme without restarting
+- View localized status messages and game-over feedback
+
+The board scales with the available window space while a protected minimum window size prevents controls from overlapping. Connect Four uses a specialized gravity-aware view; the remaining games share the canvas-based board renderer.
+
+### Architecture
+
+| Layer | Responsibility |
 | --- | --- |
-| Tic-Tac-Toe | A classic 3×3 line-making game. |
-| Connect Four | A gravity-based four-in-a-row game. |
-| Gomoku | A five-in-a-row strategy game with optional rule settings. |
-| Six-in-a-Row | A larger-board line-making variant. |
+| `app` | Application launch, menus, and top-level navigation |
+| `config` | Rules, game mode, player order, timers, theme, and language |
+| `domain` | Boards, moves, players, results, rule checking, and game engines |
+| `game` | Game definitions, registry, and engine/view factories |
+| `ai` | Bot interface, difficulty strategies, search, and board evaluators |
+| `service` | Game session, timers, settings, internationalization, and themes |
+| `ui` | JavaFX views, board rendering, status displays, and settings controls |
 
----
+This separation lets a new game provide its own engine and view factory while reusing the shared session, settings, localization, and desktop shell.
 
-### Features
+### Project Structure
 
-- Multiple board games in one desktop application
-- Local two-player gameplay
-- New game / reset support
-- Undo support
-- Win, draw, and timeout detection
-- Optional game timers
-- Last-move marker
-- Coordinate display toggle for supported game modes
-- Configurable game settings
-- Compact settings panel
-- Custom game-over dialog with restart support
-- Responsive desktop layout with protected minimum window size
-- Theme switching
-- Language switching
-- JavaFX desktop interface
-- macOS and Windows desktop builds
+```text
+src
+├── main
+│   ├── java/com/example/koku
+│   │   ├── ai/evaluator
+│   │   ├── app
+│   │   ├── config
+│   │   ├── domain/engine
+│   │   ├── game
+│   │   ├── service
+│   │   └── ui/boards
+│   └── resources
+│       ├── fonts
+│       ├── i18n
+│       └── icons
+└── test/java/com/example/koku/ai
+```
 
----
-### Desktop Experience
+### Run, Test, and Build
 
-Koku includes a desktop-oriented interface designed for both macOS and Windows:
-
-- Fixed minimum window size to prevent broken layouts
-- Adaptive board area that scales with the available space
-- Stable right-side settings panel
-- Centered game status bar aligned with the board area
-- Bottom information bar for game rules, branding, and last move
-- Platform-friendly desktop packaging through `jpackage`
-
----
-### Fonts
-
-Koku uses **Smiley Sans / 得意黑** as its bundled display font. The font is distributed under the **SIL Open Font License 1.1**, which allows personal and commercial use.
-
-If the bundled font cannot be loaded, Koku falls back to the JavaFX `System` font, which is resolved by the operating system.
-
----
-### Gomoku Features
-
-Koku includes additional rule support for Gomoku:
-
-- Configurable board size
-- Five-in-a-row win detection
-- Optional forbidden-move rule support
-- Support for rule checks such as overline, double-four, and double-three patterns
-
----
-
-### Download
-
-You can download the latest desktop version from the [Releases](https://github.com/yiyangbear/koku/releases) page.
-
-Available builds:
-
-- macOS `.dmg`
-- Windows `.exe`
-
-> Note: The app is not code-signed yet.  
-> macOS or Windows may show a security warning when opening the app for the first time.
-
-#### macOS
-
-If macOS blocks the app, right-click `Koku.app` and choose **Open**.
-
-#### Windows
-
-If Windows SmartScreen appears, click **More info**, then choose **Run anyway**.
-
----
-
-### Run from Source
-
-#### Requirements
-
-- JDK 25
-- Maven
-- Git
-
-#### Clone the Repository
+Requirements: JDK 25, Maven 3.9 or later, and Git.
 
 ```bash
 git clone https://github.com/yiyangbear/koku.git
 cd koku
-```
-
-#### Run the Application
-
-```bash
 mvn clean javafx:run
 ```
 
-#### Build the JAR
-
 ```bash
+mvn test
 mvn clean package
 ```
 
----
+### Native Packaging
 
-### Packaging
-
-Koku can be packaged as a native desktop application using `jpackage`.
-
-#### macOS
+The macOS release script builds the JAR, gathers runtime dependencies, generates the `.icns` icon, validates an application image, and creates a DMG:
 
 ```bash
-jpackage \
-  --type dmg \
-  --name Koku \
-  --app-version 1.0.0 \
-  --input build/package-input \
-  --main-jar koku-1.0-SNAPSHOT.jar \
-  --main-class com.example.koku.app.KokuLauncher \
-  --dest build/dist \
-  --icon build/koku.icns \
-  --mac-package-name Koku \
-  --mac-package-identifier com.yiyangbear.koku
+./scripts/release-mac.sh 1.0.0
 ```
 
-#### Windows
-
-The Windows installer is built automatically through GitHub Actions.
-
-You can also build it manually on Windows with:
+Windows packages can be created on Windows with `jpackage` after preparing the application JAR and runtime dependencies:
 
 ```powershell
 jpackage `
@@ -179,75 +160,35 @@ jpackage `
   --win-shortcut
 ```
 
----
+Prebuilt packages, when available, are published on the [Releases](https://github.com/yiyangbear/koku/releases) page. Packages are not currently code-signed, so the operating system may display a first-launch security warning.
 
-### Project Structure
+### Verification
 
-```text
-src/main/java/com/example/koku
-├── app        # Application launcher
-├── config     # App settings, rule options, themes, language, and timer options
-├── domain     # Core board models, players, moves, results, and game engines
-├── game       # Game definitions, registry, and engine/view factories
-├── service    # Game session, timer, settings, i18n, and theme services
-└── ui         # JavaFX views, board rendering, top bar, status view, and settings panel
+The focused AI test suite checks that:
 
-src/main/resources
-├── fonts      # Font resources
-├── i18n       # Language resource files
-└── icons      # Application icons
-```
+- Easy AI selects an unoccupied legal cell
+- Hard Tic-Tac-Toe AI takes an immediate winning move
+- Hard Tic-Tac-Toe AI blocks an immediate loss
+- Hard Connect Four AI takes an immediate winning column
 
----
+Run `mvn test` to reproduce these checks. Random tie-breaking keeps repeated games from becoming identical when several moves receive the same score.
 
-### Architecture
+### Current Limitations and Next Steps
 
-Koku is organized around a simple separation of responsibilities:
+- Six-in-a-Row Hard mode currently falls back to heuristic play
+- Search depths are fixed and intentionally bounded for desktop responsiveness
+- Deeper searches should eventually run on a background JavaFX task
+- Settings and game records are not persisted between launches
+- Online multiplayer and game replay are not implemented
+- macOS and Windows packages are not code-signed
 
-| Layer | Responsibility |
-| --- | --- |
-| App | Application entry point and launch logic |
-| Config | User settings, rule options, themes, and language options |
-| Domain | Core game models and rule engines |
-| Game | Game registration and game-specific factories |
-| Service | Session management, timer, theme, language, and settings services |
-| UI | JavaFX views and user interaction |
+These limitations are explicit so completed work can be evaluated separately from planned work.
 
-This structure makes it easier to add new games, adjust rules, and improve the interface without rewriting the entire application.
+### Font and License
 
----
+Koku bundles **Smiley Sans / 得意黑**, distributed under the SIL Open Font License 1.1. If it cannot be loaded, JavaFX falls back to the operating system's system font.
 
-### Development Goals
-
-Koku is built as a learning-oriented desktop project focused on:
-
-- Java application design
-- JavaFX UI development
-- Game rule modeling
-- Clean project structure
-- Refactoring toward extensibility
-- Cross-platform desktop packaging
-
----
-
-### Future Improvements
-
-Possible future improvements include:
-
-- AI opponent
-- Move replay
-- Save and load game records
-- More visual themes
-- More rule presets
-- Better release automation
-- Code signing for macOS and Windows
-- Online multiplayer support
-
----
-
-### License
-
-No license has been specified yet.
+No project-wide open-source license has been specified yet.
 
 ---
 
@@ -255,232 +196,128 @@ No license has been specified yet.
 
 ### 项目简介
 
-**Koku / 观子** 是一个使用 JavaFX 开发的桌面棋类游戏合集。
+**Koku / 观子** 是一个使用 Java 与 JavaFX 开发的跨平台桌面棋类合集，包含井字棋、四子棋、五子棋和六子棋。项目最初是单一的五子棋程序，随后被重构为具有统一对局会话、独立规则引擎、可复用棋盘视图、可配置设置系统和 AI 对手的扩展型棋类平台。
 
-这个项目最初是一个五子棋应用，后来被重构成一个更容易扩展的棋类游戏平台。现在它通过统一的游戏会话、规则引擎、设置系统、计时器服务和 JavaFX 界面支持多种棋类游戏。
+本项目集中展示了面向对象设计、游戏状态建模、对抗搜索、启发式评估、国际化、响应式桌面 UI、自动化测试和原生应用打包等实践成果。
 
-Koku 不只是一个可以玩的桌面应用，也是一个用于练习 Java、JavaFX、游戏规则设计和软件架构的学习项目。
+### 核心成果
 
----
+- 一个应用内支持四种棋类游戏
+- 支持本地双人和人机对战
+- 提供三档具有不同策略的 AI 难度
+- 可配置玩家先后手、计时器、五子棋棋盘尺寸和禁手规则
+- 支持悔棋、重置、胜负、平局、禁手和超时判定
+- 支持深色/浅色主题及中英文界面
+- 面向 macOS 与 Windows 的响应式 JavaFX 布局
+- 通过 `jpackage` 支持原生桌面应用打包
+- 使用 JUnit 验证关键 AI 行为
 
 ### 支持的游戏
 
-| 游戏 | 说明 |
+| 游戏 | 棋盘与目标 | 特有规则 |
+| --- | --- | --- |
+| 井字棋 | 3×3，率先三连 | 状态空间较小，可以进行完整搜索 |
+| 四子棋 | 6×7，率先四连 | 棋子自动落入所选列的最低空位 |
+| 五子棋 | 可配置方形棋盘，率先五连 | 可选长连、双四、双三等禁手检测 |
+| 六子棋 | 19×19，率先六连 | 黑方首手一子，之后每回合落两子 |
+
+### AI 对手
+
+AI 层通过统一的 `Bot` 接口接收当前棋局状态并返回合法落子，使搜索算法不依赖 JavaFX 界面。
+
+| 难度 | 策略 | 当前实现 |
+| --- | --- | --- |
+| 简单 | 随机合法落子 | 枚举空位；四子棋只枚举仍可落子的列 |
+| 普通 | 启发式搜索 | 游戏专用评估器、战术棋型评分、中心偏好和邻近候选点筛选 |
+| 困难 | 基于 Minimax 的搜索 | 井字棋使用完整 Minimax；四子棋使用限制深度的 Minimax 与 Alpha-Beta 剪枝；五子棋使用候选点限制的浅层 Minimax |
+
+五子棋 AI 会优先搜索已有棋子附近的位置，以控制大棋盘的搜索规模。启用禁手规则后，AI 执黑时会在选择前排除非法落子。六子棋尚未实现专用的多落子搜索模型，因此困难模式暂时回退到启发式策略。
+
+```mermaid
+flowchart LR
+    UI[JavaFX 界面] --> Session[GameSession]
+    Session --> Engine[GameEngine]
+    UI --> Bot[Bot 接口]
+    Bot --> Easy[RandomBot]
+    Bot --> Normal[HeuristicBot]
+    Bot --> Hard[MinimaxBot]
+    Normal --> Eval[游戏专用评估器]
+    Hard --> Eval
+    Bot --> Session
+```
+
+### 对局与桌面体验
+
+- 从统一页面选择四种棋类
+- 选择本地双人或人机对战模式
+- 选择玩家先手或后手及三档 AI 难度
+- 新建对局或撤销最近一轮落子
+- 开启每手计时或全局计时
+- 切换坐标显示和最近一步标记
+- 在侧边设置面板中应用规则
+- 无需重启即可切换语言和主题
+- 显示本地化回合状态和对局结果
+
+棋盘会根据窗口空间自动缩放，并通过最小窗口尺寸避免控件重叠。四子棋使用独立的重力落子视图，其余游戏复用基于 Canvas 的棋盘渲染。
+
+### 架构设计
+
+| 模块 | 职责 |
 | --- | --- |
-| Tic-Tac-Toe / 井字棋 | 经典 3×3 连线游戏。 |
-| Connect Four / 四子棋 | 带重力落子的四子连线游戏。 |
-| Gomoku / 五子棋 | 经典五子连线策略游戏，支持部分规则配置。 |
-| Six-in-a-Row / 六子棋 | 更大棋盘上的六子连线变体。 |
+| `app` | 应用启动、菜单和顶层页面导航 |
+| `config` | 规则、对局模式、先后手、计时器、主题和语言配置 |
+| `domain` | 棋盘、落子、玩家、结果、规则检查和游戏引擎 |
+| `game` | 游戏定义、注册表以及引擎/视图工厂 |
+| `ai` | Bot 接口、难度策略、搜索算法和棋盘评估器 |
+| `service` | 对局会话、计时、设置、国际化和主题服务 |
+| `ui` | JavaFX 视图、棋盘渲染、状态显示和设置控件 |
 
----
-
-
-### 功能特性
-
-- 一个桌面应用中支持多种棋类游戏
-- 本地双人对战
-- 新对局 / 重置游戏
-- 悔棋功能
-- 胜负、平局、超时检测
-- 可选游戏计时器
-- 最近一步标记
-- 支持部分棋类的坐标显示开关
-- 可配置游戏设置
-- 紧凑设置面板
-- 自定义对局结束弹窗，支持直接开始新对局
-- 带最小窗口限制的桌面自适应布局
-- 主题切换
-- 语言切换
-- JavaFX 桌面界面
-- 支持 macOS 和 Windows 桌面打包
-
----
-### 桌面体验
-
-Koku 的界面面向桌面应用场景进行设计：
-
-- 设置最小窗口尺寸，避免布局被压缩变形
-- 棋盘区域会根据可用空间自适应缩放
-- 右侧设置面板保持稳定，不遮挡棋盘
-- 顶部对局状态栏与棋盘区域居中对齐
-- 底部信息栏展示规则信息、品牌标识和最近一步
-- 通过 `jpackage` 支持原生桌面应用打包
-
----
-### 字体
-
-Koku 使用 **Smiley Sans / 得意黑** 作为内置展示字体。该字体基于 **SIL Open Font License 1.1** 发布，允许个人和商业用途。
-
-如果内置字体加载失败，Koku 会回退到 JavaFX 的 `System` 字体，由当前操作系统决定实际显示字体。
-
----
-### 五子棋功能
-
-Koku 对五子棋提供了额外的规则支持：
-
-- 可配置棋盘大小
-- 五子连线胜负判断
-- 可选禁手规则
-- 支持长连、双四、双三等规则检测
-
----
-
-### 下载
-
-你可以在 [Releases](https://github.com/yiyangbear/koku/releases) 页面下载最新版本。
-
-目前提供：
-
-- macOS `.dmg`
-- Windows `.exe`
-
-> 注意：目前应用还没有进行代码签名。  
-> 第一次打开时，macOS 或 Windows 可能会显示安全提醒。
-
-#### macOS
-
-如果 macOS 阻止打开应用，请右键点击 `Koku.app`，然后选择 **打开 / Open**。
-
-#### Windows
-
-如果 Windows 出现 SmartScreen 提示，请点击 **More info / 更多信息**，然后选择 **Run anyway / 仍要运行**。
-
----
+新增游戏时可以提供独立的规则引擎和视图工厂，同时复用统一的会话、设置、国际化和桌面应用外壳。
 
 ### 从源码运行
 
-#### 环境要求
-
-- JDK 25
-- Maven
-- Git
-
-#### 克隆项目
+环境要求：JDK 25、Maven 3.9 或更高版本、Git。
 
 ```bash
 git clone https://github.com/yiyangbear/koku.git
 cd koku
-```
-
-#### 运行项目
-
-```bash
 mvn clean javafx:run
 ```
 
-#### 打包 JAR
+运行测试并构建 JAR：
 
 ```bash
+mvn test
 mvn clean package
 ```
 
----
+### 原生应用打包
 
-### 应用打包
-
-Koku 可以通过 `jpackage` 打包成原生桌面应用。
-
-#### macOS
+macOS 发布脚本会构建 JAR、收集运行时依赖、生成图标、验证应用镜像并创建 DMG：
 
 ```bash
-jpackage \
-  --type dmg \
-  --name Koku \
-  --app-version 1.0.0 \
-  --input build/package-input \
-  --main-jar koku-1.0-SNAPSHOT.jar \
-  --main-class com.example.koku.app.KokuLauncher \
-  --dest build/dist \
-  --icon build/koku.icns \
-  --mac-package-name Koku \
-  --mac-package-identifier com.yiyangbear.koku
+./scripts/release-mac.sh 1.0.0
 ```
 
-#### Windows
+Windows 可在准备好应用 JAR 与运行时依赖后使用 `jpackage` 创建安装包，参数参见英文部分。预构建安装包会在可用时发布到 [Releases](https://github.com/yiyangbear/koku/releases) 页面。目前安装包尚未进行代码签名。
 
-Windows 安装包目前通过 GitHub Actions 自动构建。
+### 自动化验证
 
-如果需要在 Windows 上手动构建，也可以使用：
+当前 AI 测试验证简单 AI 的合法落子，以及困难井字棋和四子棋 AI 的立即取胜与防守能力。执行 `mvn test` 即可复现全部检查。
 
-```powershell
-jpackage `
-  --type exe `
-  --name Koku `
-  --app-version 1.0.0 `
-  --input build/package-input `
-  --main-jar koku-1.0-SNAPSHOT.jar `
-  --main-class com.example.koku.app.KokuLauncher `
-  --dest build/dist `
-  --win-menu `
-  --win-shortcut
-```
+### 当前限制与后续方向
 
----
+- 六子棋困难模式目前回退到启发式策略
+- 搜索深度固定，并为桌面响应速度进行了限制
+- 更深的搜索未来应放入 JavaFX 后台任务
+- 设置和棋谱尚未在应用退出后持久化
+- 尚未实现在线对战和棋局回放
+- macOS 与 Windows 安装包尚未进行代码签名
 
-### 项目结构
+明确列出这些限制，便于将当前已经完成的成果与未来计划分开评估。
 
-```text
-src/main/java/com/example/koku
-├── app        # 应用启动入口
-├── config     # 应用设置、规则选项、主题、语言和计时器配置
-├── domain     # 核心棋盘模型、玩家、落子、结果和游戏引擎
-├── game       # 游戏定义、游戏注册表和引擎 / 视图工厂
-├── service    # 游戏会话、计时器、设置、国际化和主题服务
-└── ui         # JavaFX 视图、棋盘渲染、顶部栏、状态栏和设置面板
+### 字体与许可证
 
-src/main/resources
-├── fonts      # 字体资源
-├── i18n       # 多语言资源文件
-└── icons      # 应用图标
-```
+Koku 内置 **Smiley Sans / 得意黑**，该字体基于 SIL Open Font License 1.1 发布。如果加载失败，JavaFX 会回退到操作系统的系统字体。
 
----
-
-### 架构设计
-
-Koku 采用简单清晰的分层设计：
-
-| 层级 | 职责 |
-| --- | --- |
-| App | 应用入口和启动逻辑 |
-| Config | 用户设置、规则选项、主题和语言配置 |
-| Domain | 核心游戏模型和规则引擎 |
-| Game | 游戏注册和游戏相关工厂 |
-| Service | 游戏会话、计时器、主题、语言和设置服务 |
-| UI | JavaFX 界面和用户交互 |
-
-这种结构使项目更容易添加新游戏、调整规则和改进界面，而不需要重写整个应用。
-
----
-
-### 开发目标
-
-Koku 是一个学习导向的桌面项目，主要用于练习：
-
-- Java 应用设计
-- JavaFX 界面开发
-- 棋类规则建模
-- 清晰的项目结构
-- 面向扩展的重构
-- 跨平台桌面应用打包
-
----
-
-### 未来改进方向
-
-未来可以继续加入：
-
-- AI 对手
-- 棋局回放
-- 保存和加载棋局
-- 更多视觉主题
-- 更多规则预设
-- 更完善的自动发布流程
-- macOS 和 Windows 代码签名
-- 在线多人对战
-
----
-
-### License
-
-目前尚未指定开源许可证。
+本项目目前尚未指定统一的开源许可证。

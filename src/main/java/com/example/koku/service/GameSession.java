@@ -48,6 +48,10 @@ public class GameSession {
         return ruleConfig;
     }
 
+    public GameEngine getEngine() {
+        return engine;
+    }
+
     public int getBoardSize() {
         return engine.getBoardSize();
     }
