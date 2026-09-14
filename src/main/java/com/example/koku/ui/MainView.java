@@ -1,8 +1,18 @@
 package com.example.koku.ui;
 
+import com.example.koku.ai.Bot;
+import com.example.koku.ai.BotDifficulty;
+import com.example.koku.ai.BotMoveRequest;
+import com.example.koku.ai.BotMoveResult;
+import com.example.koku.ai.HeuristicBot;
+import com.example.koku.ai.MinimaxBot;
+import com.example.koku.ai.RandomBot;
 import com.example.koku.config.AppSettings;
+import com.example.koku.config.GameMode;
 import com.example.koku.config.LanguageMode;
+import com.example.koku.config.PlayerOrder;
 import com.example.koku.config.RuleConfig;
+import com.example.koku.domain.Move;
 import com.example.koku.domain.GameStatus;
 import com.example.koku.domain.Player;
 import com.example.koku.game.GameDefinition;
@@ -15,6 +25,7 @@ import com.example.koku.ui.boards.ConnectFourBoardView;
 import com.example.koku.ui.boards.GameBoardView;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
+import javafx.animation.PauseTransition;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -31,6 +42,8 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.util.Duration;
+
+import java.util.Optional;
 
 public class MainView extends BorderPane {
     private final SettingsService settingsService;
@@ -64,6 +77,9 @@ public class MainView extends BorderPane {
     private final Timeline uiTicker;
     private boolean gameOverDialogShown;
     private boolean gameOverDialogScheduled;
+    private boolean botThinking;
+    private PauseTransition botMoveDelay;
+    private String botStatusKey;
 
     public MainView() {
         this(GameRegistry.gomoku(), null);
@@ -107,6 +123,7 @@ public class MainView extends BorderPane {
         this.panelVisible = false;
         this.gameOverDialogShown = false;
         this.gameOverDialogScheduled = false;
+        this.botThinking = false;
 
         buildLayout();
         bindActions();
@@ -246,10 +263,7 @@ public class MainView extends BorderPane {
         });
 
         topBarView.getUndoButton().setOnAction(event -> {
-            session.undo();
-            gameOverDialogShown = false;
-            gameOverDialogScheduled = false;
-            refreshAll();
+            undoCurrentTurn();
         });
 
         topBarView.getSettingsButton().setOnAction(event -> {
@@ -281,8 +295,10 @@ public class MainView extends BorderPane {
 
             gameOverDialogShown = false;
             gameOverDialogScheduled = false;
+            clearBotState();
             hideSettingsPanel();
             refreshAll();
+            maybeScheduleBotMove();
         });
 
         settingsPanel.getThemeBox().setOnAction(event -> {
@@ -313,6 +329,7 @@ public class MainView extends BorderPane {
         boardView.setOnBoardChanged(() -> {
             refreshBoardAndTexts();
             maybeShowResultDialog();
+            maybeScheduleBotMove();
         });
 
         if (boardView instanceof ConnectFourBoardView connectFourBoardView) {
@@ -353,10 +370,7 @@ public class MainView extends BorderPane {
     }
 
     public void requestUndo() {
-        session.undo();
-        gameOverDialogShown = false;
-        gameOverDialogScheduled = false;
-        refreshAll();
+        undoCurrentTurn();
     }
 
     public void requestBackToSelect() {
@@ -464,6 +478,7 @@ public class MainView extends BorderPane {
                 settings.isShowLastMoveMarker(),
                 fontFamily
         );
+        updateBoardInputState();
         applyBoardWrapTheme(palette);
     }
 
@@ -478,6 +493,7 @@ public class MainView extends BorderPane {
                 settings.isShowLastMoveMarker(),
                 fontFamily
         );
+        updateBoardInputState();
     }
 
     private void refreshTextsOnly() {
@@ -566,6 +582,9 @@ public class MainView extends BorderPane {
                 i18nService.text("settings.timer.total"),
                 i18nService.text("settings.timer.minutes"),
                 i18nService.text("settings.timer.seconds"),
+                i18nService.text("settings.gameMode"),
+                i18nService.text("settings.playerOrder"),
+                i18nService.text("settings.aiDifficulty"),
                 i18nService.text("settings.appearance"),
                 i18nService.text("settings.language"),
                 i18nService.text("settings.showCoordinates"),
@@ -591,6 +610,9 @@ public class MainView extends BorderPane {
         if (status == GameStatus.DRAW) {
             return i18nService.text("result.draw");
         }
+        if (session.getCurrentPlayer() == Player.BLACK && isBotTurn() && botThinking) {
+            return i18nService.text("status.botThinking");
+        }
         return session.getCurrentPlayer() == Player.BLACK
                 ? i18nService.text("status.blackToMove")
                 : "";
@@ -606,6 +628,9 @@ public class MainView extends BorderPane {
         }
         if (status == GameStatus.DRAW) {
             return "";
+        }
+        if (session.getCurrentPlayer() == Player.WHITE && isBotTurn() && botThinking) {
+            return i18nService.text("status.botThinking");
         }
         return session.getCurrentPlayer() == Player.WHITE
                 ? i18nService.text("status.whiteToMove")
@@ -646,6 +671,10 @@ public class MainView extends BorderPane {
     }
 
     private String buildBottomSummary(AppSettings settings) {
+        if (botStatusKey != null) {
+            return i18nService.text(botStatusKey);
+        }
+
         return switch (gameDefinition.id()) {
             case "ticTacToe" -> session.boardSizeLabel()
                     + " · "
@@ -713,6 +742,7 @@ public class MainView extends BorderPane {
     }
 
     private void startNewMatch() {
+        clearBotState();
         if (settingsService.getSettings().hasPendingRuleChanges()) {
             settingsService.applyPendingRules();
             session.applyRuleConfigAndNewMatch(settingsService.getSettings().getCurrentRuleConfig());
@@ -723,6 +753,122 @@ public class MainView extends BorderPane {
         gameOverDialogScheduled = false;
         hideResultOverlay();
         refreshAll();
+        maybeScheduleBotMove();
+    }
+
+    private void maybeScheduleBotMove() {
+        if (!isHumanVsComputer() || botThinking || session.isGameOver() || !isBotTurn()) {
+            updateBoardInputState();
+            return;
+        }
+
+        botThinking = true;
+        botStatusKey = "status.botThinking";
+        updateBoardInputState();
+        refreshTextsOnly();
+
+        if (botMoveDelay != null) {
+            botMoveDelay.stop();
+        }
+
+        botMoveDelay = new PauseTransition(Duration.millis(260));
+        botMoveDelay.setOnFinished(event -> applyBotMove());
+        botMoveDelay.play();
+    }
+
+    private void applyBotMove() {
+        if (!isHumanVsComputer() || session.isGameOver() || !isBotTurn()) {
+            clearBotState();
+            refreshBoardAndTexts();
+            return;
+        }
+
+        Bot bot = createBot(settingsService.getSettings().getCurrentRuleConfig().botDifficulty());
+        Player botPlayer = botPlayer();
+        BotMoveRequest request = new BotMoveRequest(
+                session.getEngine(),
+                botPlayer,
+                botPlayer.opposite(),
+                gameDefinition
+        );
+        BotMoveResult result = bot.chooseMove(request);
+        result.move().ifPresent(move -> session.makeMove(move.position().row(), move.position().col()));
+
+        botThinking = false;
+        botStatusKey = result.move().isPresent() ? "status.botMoved" : null;
+        boardView.draw();
+        refreshBoardAndTexts();
+        maybeShowResultDialog();
+
+        // TODO: Run future minimax/hard bots on a background Task instead of the JavaFX thread.
+        maybeScheduleBotMove();
+    }
+
+    private Bot createBot(BotDifficulty difficulty) {
+        return switch (difficulty) {
+            case EASY -> new RandomBot();
+            case NORMAL -> new HeuristicBot();
+            case HARD -> new MinimaxBot();
+        };
+    }
+
+    private boolean isHumanVsComputer() {
+        return settingsService.getSettings().getCurrentRuleConfig().gameMode() == GameMode.HUMAN_VS_COMPUTER;
+    }
+
+    private boolean isBotTurn() {
+        return isHumanVsComputer() && session.getCurrentPlayer() == botPlayer();
+    }
+
+    private Player botPlayer() {
+        RuleConfig ruleConfig = settingsService.getSettings().getCurrentRuleConfig();
+        return ruleConfig.playerOrder() == PlayerOrder.PLAYER_SECOND ? Player.BLACK : Player.WHITE;
+    }
+
+    private void updateBoardInputState() {
+        if (boardView == null) {
+            return;
+        }
+        boardView.getNode().setMouseTransparent(botThinking || isBotTurn());
+    }
+
+    private void clearBotState() {
+        if (botMoveDelay != null) {
+            botMoveDelay.stop();
+        }
+        botThinking = false;
+        botStatusKey = null;
+        updateBoardInputState();
+    }
+
+    private void undoCurrentTurn() {
+        if (botThinking) {
+            return;
+        }
+
+        if (isHumanVsComputer()) {
+            undoHumanVsComputerTurn();
+        } else {
+            session.undo();
+        }
+
+        botStatusKey = null;
+        gameOverDialogShown = false;
+        gameOverDialogScheduled = false;
+        refreshAll();
+    }
+
+    private void undoHumanVsComputerTurn() {
+        Player botPlayer = botPlayer();
+        Optional<Move> lastMove = session.getLastMove();
+        while (lastMove.isPresent() && lastMove.get().player() == botPlayer) {
+            session.undo();
+            lastMove = session.getLastMove();
+        }
+        if (lastMove.isPresent()) {
+            session.undo();
+        }
+        // TODO: Connect6 human turns can contain two stones; add full-turn undo when AI turn tracking is richer.
     }
 
     private void applyResultOverlayTheme(ThemeService.Palette palette) {

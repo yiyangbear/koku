@@ -1,5 +1,7 @@
 package com.example.koku.config;
 
+import com.example.koku.ai.BotDifficulty;
+
 public record RuleConfig(
         BoardSizeOption boardSizeOption,
         boolean forbiddenMovesEnabled,
@@ -9,7 +11,10 @@ public record RuleConfig(
         TotalTimerOption totalTimerOption,
         int totalCustomMinutes,
         int totalCustomSeconds,
-        TimerMode timerMode
+        TimerMode timerMode,
+        GameMode gameMode,
+        PlayerOrder playerOrder,
+        BotDifficulty botDifficulty
 ) {
     public static RuleConfig defaultConfig() {
         return new RuleConfig(
@@ -21,7 +26,10 @@ public record RuleConfig(
                 TotalTimerOption.OFF,
                 0,
                 0,
-                TimerMode.PER_MOVE
+                TimerMode.PER_MOVE,
+                GameMode.HUMAN_VS_HUMAN,
+                PlayerOrder.PLAYER_FIRST,
+                BotDifficulty.EASY
         );
     }
 }

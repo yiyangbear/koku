@@ -30,6 +30,10 @@ public class GomokuEngine implements GameEngine {
         return board;
     }
 
+    public boolean isForbiddenMovesEnabled() {
+        return forbiddenMovesEnabled;
+    }
+
     @Override
     public int getBoardSize() {
         return board.getSize();
